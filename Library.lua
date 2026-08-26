@@ -4,7 +4,7 @@
 
     Octohook
     -> Made by @finobe 
-    -> Kind of got bored idk what to do with life
+    -- Edidted by claude cuz i aint reading no 9000 lines 
 ]]
 
 
