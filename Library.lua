@@ -1233,10 +1233,6 @@ end
                 Library.Blur:Destroy()
             end 
 
-            if Library.Crosshair and Library.Crosshair.Destroy then
-                Library.Crosshair:Destroy()
-            end
-
             if Esp then 
                 Esp.Unload()
             end 
