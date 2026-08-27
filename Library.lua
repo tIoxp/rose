@@ -4,7 +4,8 @@
 
     Octohook
     -> Made by @finobe 
-    -- Edidted by claude cuz i aint reading no 9000 lines 
+    -> Kind of got bored idk what to do with life
+	-> Thank you claude for fixing this!!
 ]]
 
 
@@ -8274,10 +8275,6 @@ end
 
                     Options.Boxes = Enabled
 
-                    if Enabled then 
-                        Elements.Options.Type.Set(Flags[Config.Flag .. "_CORNERS_ENABLED"])
-                    end 
-
                     Flags[Config.Flag] = {
                         Enabled = Enabled,
                         Position = Position 
@@ -8597,1086 +8594,1031 @@ end
     -- 
 -- 
 
--- Esp  
-    getgenv().Esp = { 
-        Players = {}, 
-        PlayersOptions = {},
-        ScreenGui = Instance.new("ScreenGui", gethui()), 
-        Cache = Instance.new("ScreenGui", gethui()), 
-        Connections = {}, 
-    }; do 
-        Esp.ScreenGui.IgnoreGuiInset = true
-        Esp.ScreenGui.Name = "EspObject"
+getgenv().Esp = {
+    Players = {},
+    PlayersOptions = {},
+    ScreenGui = Instance.new("ScreenGui", gethui()),
+    Cache = Instance.new("ScreenGui", gethui()),
+    Connections = {},
+}; do
+    Esp.ScreenGui.IgnoreGuiInset = true
+    Esp.ScreenGui.Name = "EspObject"
 
-        Esp.Cache.Enabled = false   
-        
+    Esp.Cache.Enabled = false
 
-        if GameName:find('Apocalypse') then
-            local ReplicatedFirst = game:GetService('ReplicatedFirst')
+    if GameName:find('Apocalypse') then
+        local ReplicatedFirst = game:GetService('ReplicatedFirst')
+        local GameFramework = require(ReplicatedFirst:WaitForChild('Framework'))
+        local AnimatorClass = GameFramework.Classes.Animators
 
-            local GameFramework = require(ReplicatedFirst:WaitForChild('Framework'))
+        function Esp:GetWeapon(Player)
+            local Character = Player and Player.Character
+            if not Character then return end
 
-            local AnimatorClass = GameFramework.Classes.Animators
+            local Animator = Character.Animator
+            if not Animator then return end
 
-            function Esp:GetWeapon(Player)
-                local Character = Player and Player.Character
-                if not Character then return end
+            local EquippedItem = Animator.EquippedItem.Value
+            if not EquippedItem or EquippedItem == "" or EquippedItem == "[]" then return end
 
-                local Animator = Character.Animator
-                if not Animator then return end
+            local Data = typeof(EquippedItem) == "string" and HttpService:JSONDecode(EquippedItem) or EquippedItem
+            if not Data then return end
 
-                local EquippedItem = Animator.EquippedItem.Value
-                if not EquippedItem or EquippedItem == "" or EquippedItem == "[]" then return end
+            return Data.ItemName
+        end
 
-                local Data = typeof(EquippedItem) == "string" and HttpService:JSONDecode(EquippedItem) or EquippedItem
-                if not Data then return end
+        function Esp:CheckState(Player, Checks)
+            if not Player or not Player.Character then return nil end
 
-                return Data.ItemName
-            end
+            local Animator = AnimatorClass.find(Player.Character)
+            if not Animator then return nil end
 
-            function Esp:CheckState(Player, Checks)
-                if not Player or not Player.Character then return nil end
+            local States = Animator.States
+            local DesiredStates = {}
 
-                local Animator = AnimatorClass.find(Player.Character)
-                if not Animator then return nil end
-
-                local States = Animator.States
-                local DesiredStates = {}
-
-                for _, StateName in Checks do
-                    local StateValue = States[StateName]
-                    if StateValue ~= nil then
-                        if typeof(StateValue) == "boolean" then --// first person, iszooming, etc
-                            if StateValue == true then
-                                table.insert(DesiredStates, StateName)
-                            end
-                        else
-                            table.insert(DesiredStates, tostring(StateValue)) --// movestate
+            for _, StateName in Checks do
+                local StateValue = States[StateName]
+                if StateValue ~= nil then
+                    if typeof(StateValue) == "boolean" then
+                        if StateValue == true then
+                            table.insert(DesiredStates, StateName)
                         end
+                    else
+                        table.insert(DesiredStates, tostring(StateValue))
                     end
                 end
-
-                return DesiredStates
-            end
-        end
-
-        function Esp:Create(instance, options)
-            local Ins = Instance.new(instance) 
-            
-            for prop, value in options do 
-                Ins[prop] = value
-            end
-            
-            for _, prop in {"BackgroundTransparency", "TextTransparency", "ImageTransparency", "ScrollBarImageTransparency", "Transparency"} do
-                pcall(function()
-                    if Ins[prop] ~= nil then
-                        Ins:SetAttribute("Base_" .. prop, Ins[prop])
-                    end
-                end)
             end
 
-            return Ins 
+            return DesiredStates
+        end
+    end
+
+    function Esp:Create(Instance_, Options)
+        local Ins = Instance.new(Instance_)
+
+        for Prop, Value in Options do
+            Ins[Prop] = Value
         end
 
-        function Esp:Draw(instance, options)
-            local Ins = Drawing.new(instance) 
-            
-            for prop, value in options do 
-                Ins[prop] = value
-            end
-            
-            return Ins 
+        for _, Prop in {"BackgroundTransparency", "TextTransparency", "ImageTransparency", "ScrollBarImageTransparency", "Transparency"} do
+            pcall(function()
+                if Ins[Prop] ~= nil then
+                    Ins:SetAttribute("Base_" .. Prop, Ins[Prop])
+                end
+            end)
         end
 
-        function Esp:ConvertScreenPoint(world_position)
-            local ViewportSize = Camera.ViewportSize
-            local LocalPos = Camera.CFrame:pointToObjectSpace(world_position) 
+        return Ins
+    end
 
-            local AspectRatio = ViewportSize.X / ViewportSize.Y
-            local HalfY = -LocalPos.Z * math.tan(math.rad(Camera.FieldOfView / 2))
-            local HalfX = AspectRatio * HalfY
-            
-            local FarPlaneCorner = Vector3.new(-HalfX, HalfY, LocalPos.Z)
-            local RelativePos = LocalPos - FarPlaneCorner
-        
-            local ScreenX = RelativePos.X / (HalfX * 2)
-            local ScreenY = -RelativePos.Y / (HalfY * 2)
-            
-            local OnScreen = -LocalPos.Z > 0 and ScreenX >= 0 and ScreenX <= 1 and ScreenY >= 0 and ScreenY <= 1
-            
-            -- returns in pixels as opposed to scale
-            return Vector3.new(ScreenX * ViewportSize.X, ScreenY * ViewportSize.Y, -LocalPos.Z), OnScreen
+    function Esp:Draw(Instance_, Options)
+        local Ins = Drawing.new(Instance_)
+
+        for Prop, Value in Options do
+            Ins[Prop] = Value
         end
 
-        function Esp:Connection(signal, callback)
-            local Connection = signal:Connect(callback)
-            Esp.Connections[#Esp.Connections + 1] = Connection
-            
-            return Connection 
+        return Ins
+    end
+
+    function Esp:ConvertScreenPoint(WorldPosition)
+        local ViewportSize = Camera.ViewportSize
+        local LocalPos = Camera.CFrame:pointToObjectSpace(WorldPosition)
+
+        local AspectRatio = ViewportSize.X / ViewportSize.Y
+        local HalfY = -LocalPos.Z * math.tan(math.rad(Camera.FieldOfView / 2))
+        local HalfX = AspectRatio * HalfY
+
+        local FarPlaneCorner = Vector3.new(-HalfX, HalfY, LocalPos.Z)
+        local RelativePos = LocalPos - FarPlaneCorner
+
+        local ScreenX = RelativePos.X / (HalfX * 2)
+        local ScreenY = -RelativePos.Y / (HalfY * 2)
+
+        local OnScreen = -LocalPos.Z > 0 and ScreenX >= 0 and ScreenX <= 1 and ScreenY >= 0 and ScreenY <= 1
+
+        return Vector3.new(ScreenX * ViewportSize.X, ScreenY * ViewportSize.Y, -LocalPos.Z), OnScreen
+    end
+
+    function Esp:Connection(Signal, Callback)
+        local Connection = Signal:Connect(Callback)
+        Esp.Connections[#Esp.Connections + 1] = Connection
+        return Connection
+    end
+
+    Esp.Vertices = {
+        Vector3.new(-1, -1, -1),
+        Vector3.new(-1,  1, -1),
+        Vector3.new(-1,  1,  1),
+        Vector3.new(-1, -1,  1),
+        Vector3.new( 1, -1, -1),
+        Vector3.new( 1,  1, -1),
+        Vector3.new( 1,  1,  1),
+        Vector3.new( 1, -1,  1),
+    }
+
+    function Esp:WorldToScreen(WorldPosition)
+        local ScreenPosition, OnScreen = Camera:WorldToViewportPoint(WorldPosition)
+        return Vector2.new(ScreenPosition.X, ScreenPosition.Y), OnScreen, ScreenPosition.Z
+    end
+
+    function Esp:BoundingBox(CF, Size)
+        local Corners = table.create(#self.Vertices)
+        for I = 1, #self.Vertices do
+            Corners[I] = self:WorldToScreen((CF + Size * 0.5 * self.Vertices[I]).Position)
         end
 
-        Esp.Vertices = {
-                Vector3.new(-1, -1, -1),
-                Vector3.new(-1, 1, -1),
-                Vector3.new(-1, 1, 1),
-                Vector3.new(-1, -1, 1),
-                Vector3.new(1, -1, -1),
-                Vector3.new(1, 1, -1),
-                Vector3.new(1, 1, 1),
-                Vector3.new(1, -1, 1)
+        local Min = Vector2.zero.Min(Camera.ViewportSize, unpack(Corners))
+        local Max = Vector2.zero.Max(Vector2.zero, unpack(Corners))
+
+        return {
+            Corners     = Corners,
+            TopLeft     = Vector2.new(math.floor(Min.X), math.floor(Min.Y)),
+            TopRight    = Vector2.new(math.floor(Max.X), math.floor(Min.Y)),
+            BottomLeft  = Vector2.new(math.floor(Min.X), math.floor(Max.Y)),
+            BottomRight = Vector2.new(math.floor(Max.X), math.floor(Max.Y)),
+        }
+    end
+
+    function Esp:GetBoundingBox(Parts)
+        local Min, Max
+        for I = 1, #Parts do
+            local Part = Parts[I]
+            local CF, Size = Part.CFrame, Part.Size
+            Min = Vector3.zero.Min(Min or CF.Position, (CF - Size * 0.5).Position)
+            Max = Vector3.zero.Max(Max or CF.Position, (CF + Size * 0.5).Position)
+        end
+
+        local Center = (Min + Max) * 0.5
+        local Front = Vector3.new(Center.X, Center.Y, Max.Z)
+        return CFrame.new(Center, Front), Max - Min
+    end
+
+    function Esp:Lerp(Start, Finish, T)
+        T = T or 1 / 8
+        return Start * (1 - T) + Finish * T
+    end
+
+    function Esp:Tween(Obj, Props, Info)
+        local TweenObj = TweenService:Create(Obj, Info, Props)
+        TweenObj:Play()
+        return TweenObj
+    end
+
+    function Esp.CreateObject(Player)
+        local Data = {
+            Player      = Player,
+            Type        = "player",
+            Drawings    = {},
+            Items       = {},
+            Handles     = {},
+            LerpHealth  = 0,
+            Chams       = true,
         }
 
-        function Esp:WorldToScreen(WorldPosition)
-            local ScreenPosition, OnScreen = Camera:WorldToViewportPoint(WorldPosition)
-            return Vector2.new(ScreenPosition.X, ScreenPosition.Y), OnScreen, ScreenPosition.Z
+        local Items = Data.Items; do
+            Items.Holder = Esp:Create("Frame", {
+                Parent               = Esp.ScreenGui,
+                Visible              = false,
+                Name                 = "\0",
+                BackgroundTransparency = 1,
+                Position             = dim2(0.4332570433616638, 0, 0.3255814015865326, 0),
+                BorderColor3         = rgb(0, 0, 0),
+                Size                 = dim2(0, 211, 0, 240),
+                BorderSizePixel      = 0,
+                BackgroundColor3     = rgb(255, 255, 255),
+            })
+
+            Items.HolderGradient = Library:Create("UIGradient", {
+                Rotation = 0,
+                Name     = "\0",
+                Color    = rgbseq{rgbkey(0, rgb(255, 255, 255)), rgbkey(1, rgb(255, 255, 255))},
+                Parent   = Items.Holder,
+                Enabled  = true,
+            })
+
+            Items.Left = Esp:Create("Frame", {
+                Parent               = Items.Holder,
+                Size                 = dim2(0, 0, 1, 0),
+                Name                 = "\0",
+                BackgroundTransparency = 1,
+                Position             = dim2(0, -1, 0, 0),
+                BorderColor3         = rgb(0, 0, 0),
+                ZIndex               = 2,
+                BorderSizePixel      = 0,
+                BackgroundColor3     = rgb(255, 255, 255),
+            })
+
+            Items.HealthbarTextsLeft = Esp:Create("Frame", {
+                Visible              = true,
+                BorderColor3         = rgb(0, 0, 0),
+                Parent               = Esp.Cache,
+                Name                 = "\0",
+                BackgroundTransparency = 1,
+                LayoutOrder          = -100,
+                BorderSizePixel      = 0,
+                ZIndex               = 0,
+                AutomaticSize        = Enum.AutomaticSize.X,
+                BackgroundColor3     = rgb(255, 255, 255),
+            })
+
+            Esp:Create("UIListLayout", {
+                FillDirection        = Enum.FillDirection.Horizontal,
+                HorizontalAlignment  = Enum.HorizontalAlignment.Right,
+                VerticalFlex         = Enum.UIFlexAlignment.Fill,
+                Parent               = Items.Left,
+                Padding              = dim(0, 1),
+                SortOrder            = Enum.SortOrder.LayoutOrder,
+            })
+
+            Items.LeftTexts = Esp:Create("Frame", {
+                LayoutOrder          = -100,
+                Parent               = Items.Left,
+                BackgroundTransparency = 1,
+                Name                 = "\0",
+                BorderColor3         = rgb(0, 0, 0),
+                BorderSizePixel      = 0,
+                AutomaticSize        = Enum.AutomaticSize.X,
+                BackgroundColor3     = rgb(255, 255, 255),
+            })
+
+            Esp:Create("UIListLayout", {
+                Parent    = Items.LeftTexts,
+                Padding   = dim(0, 1),
+                SortOrder = Enum.SortOrder.LayoutOrder,
+            })
+
+            Items.Bottom = Esp:Create("Frame", {
+                Parent               = Items.Holder,
+                Size                 = dim2(1, 0, 0, 0),
+                Name                 = "\0",
+                BackgroundTransparency = 1,
+                Position             = dim2(0, 0, 1, 1),
+                BorderColor3         = rgb(0, 0, 0),
+                ZIndex               = 2,
+                BorderSizePixel      = 0,
+                BackgroundColor3     = rgb(255, 255, 255),
+            })
+
+            Items.HealthbarTextsBottom = Esp:Create("Frame", {
+                Visible              = true,
+                BorderColor3         = rgb(0, 0, 0),
+                Parent               = Esp.Cache,
+                Name                 = "\0",
+                BackgroundTransparency = 1,
+                LayoutOrder          = 0,
+                BorderSizePixel      = 0,
+                ZIndex               = 0,
+                AutomaticSize        = Enum.AutomaticSize.Y,
+                BackgroundColor3     = rgb(255, 255, 255),
+            })
+
+            Esp:Create("UIListLayout", {
+                SortOrder           = Enum.SortOrder.LayoutOrder,
+                HorizontalAlignment = Enum.HorizontalAlignment.Center,
+                HorizontalFlex      = Enum.UIFlexAlignment.Fill,
+                Parent              = Items.Bottom,
+                Padding             = dim(0, 1),
+            })
+
+            Items.BottomTexts = Esp:Create("Frame", {
+                LayoutOrder          = 1,
+                Parent               = Items.Bottom,
+                BackgroundTransparency = 1,
+                Name                 = "\0",
+                BorderColor3         = rgb(0, 0, 0),
+                BorderSizePixel      = 0,
+                AutomaticSize        = Enum.AutomaticSize.XY,
+                BackgroundColor3     = rgb(255, 255, 255),
+            })
+
+            Esp:Create("UIListLayout", {
+                Parent    = Items.BottomTexts,
+                Padding   = dim(0, 1),
+                SortOrder = Enum.SortOrder.LayoutOrder,
+            })
+
+            Items.Top = Esp:Create("Frame", {
+                Parent               = Items.Holder,
+                Size                 = dim2(1, 0, 0, 0),
+                Name                 = "\0",
+                BackgroundTransparency = 1,
+                Position             = dim2(0, 0, 0, -1),
+                BorderColor3         = rgb(0, 0, 0),
+                ZIndex               = 2,
+                BorderSizePixel      = 0,
+                BackgroundColor3     = rgb(255, 255, 255),
+            })
+
+            Items.HealthbarTextsTop = Esp:Create("Frame", {
+                Visible              = true,
+                BorderColor3         = rgb(0, 0, 0),
+                Parent               = Esp.Cache,
+                Name                 = "\0",
+                BackgroundTransparency = 1,
+                LayoutOrder          = -100,
+                BorderSizePixel      = 0,
+                ZIndex               = 0,
+                AutomaticSize        = Enum.AutomaticSize.Y,
+                BackgroundColor3     = rgb(255, 255, 255),
+            })
+
+            Esp:Create("UIListLayout", {
+                VerticalAlignment   = Enum.VerticalAlignment.Bottom,
+                SortOrder           = Enum.SortOrder.LayoutOrder,
+                HorizontalAlignment = Enum.HorizontalAlignment.Center,
+                HorizontalFlex      = Enum.UIFlexAlignment.Fill,
+                Parent              = Items.Top,
+                Padding             = dim(0, 1),
+            })
+
+            Items.TopTexts = Esp:Create("Frame", {
+                LayoutOrder          = -100,
+                Parent               = Items.Top,
+                BackgroundTransparency = 1,
+                Name                 = "\0",
+                BorderColor3         = rgb(0, 0, 0),
+                BorderSizePixel      = 0,
+                AutomaticSize        = Enum.AutomaticSize.XY,
+                BackgroundColor3     = rgb(255, 255, 255),
+            })
+
+            Esp:Create("UIListLayout", {
+                Parent    = Items.TopTexts,
+                Padding   = dim(0, 1),
+                SortOrder = Enum.SortOrder.LayoutOrder,
+            })
+
+            Items.Right = Esp:Create("Frame", {
+                Parent               = Esp.Cache,
+                Size                 = dim2(0, 0, 1, 0),
+                Name                 = "\0",
+                BackgroundTransparency = 1,
+                Position             = dim2(1, 2, 0, 0),
+                BorderColor3         = rgb(0, 0, 0),
+                ZIndex               = 2,
+                BorderSizePixel      = 0,
+                BackgroundColor3     = rgb(255, 255, 255),
+            })
+
+            Esp:Create("UIListLayout", {
+                FillDirection = Enum.FillDirection.Horizontal,
+                VerticalFlex  = Enum.UIFlexAlignment.Fill,
+                Parent        = Items.Right,
+                Padding       = dim(0, 1),
+                SortOrder     = Enum.SortOrder.LayoutOrder,
+            })
+
+            Items.RightTexts = Esp:Create("Frame", {
+                LayoutOrder          = 100,
+                Parent               = Esp.Cache,
+                BackgroundTransparency = 1,
+                Name                 = "\0",
+                BorderColor3         = rgb(0, 0, 0),
+                BorderSizePixel      = 0,
+                AutomaticSize        = Enum.AutomaticSize.X,
+                BackgroundColor3     = rgb(255, 255, 255),
+            })
+
+            Esp:Create("UIListLayout", {
+                Parent    = Items.RightTexts,
+                Padding   = dim(0, 1),
+                SortOrder = Enum.SortOrder.LayoutOrder,
+            })
+
+            Items.HealthbarTextsRight = Esp:Create("Frame", {
+                Visible              = true,
+                BorderColor3         = rgb(0, 0, 0),
+                Parent               = Esp.Cache,
+                Name                 = "\0",
+                BackgroundTransparency = 1,
+                LayoutOrder          = 99,
+                BorderSizePixel      = 0,
+                ZIndex               = 0,
+                AutomaticSize        = Enum.AutomaticSize.X,
+                BackgroundColor3     = rgb(255, 255, 255),
+            })
+
+            Items.Box = Esp:Create("Frame", {
+                Parent               = Esp.Cache,
+                Name                 = "\0",
+                BackgroundTransparency = 1,
+                Position             = dim2(0, 1, 0, 1),
+                BorderColor3         = rgb(0, 0, 0),
+                Size                 = dim2(1, -2, 1, -2),
+                BorderSizePixel      = 0,
+                BackgroundColor3     = rgb(255, 255, 255),
+            })
+
+            Esp:Create("UIStroke", {
+                Parent      = Items.Box,
+                LineJoinMode = Enum.LineJoinMode.Miter,
+                Color       = Color3.new(0.1, 0.1, 0.1),
+            })
+
+            Items.Inner = Esp:Create("Frame", {
+                Parent               = Items.Box,
+                Name                 = "\0",
+                BackgroundTransparency = 1,
+                Position             = dim2(0, 1, 0, 1),
+                BorderColor3         = rgb(0, 0, 0),
+                Size                 = dim2(1, -2, 1, -2),
+                BorderSizePixel      = 0,
+                BackgroundColor3     = rgb(255, 255, 255),
+            })
+
+            Items.UIStroke = Esp:Create("UIStroke", {
+                Color        = rgb(255, 255, 255),
+                LineJoinMode = Enum.LineJoinMode.Miter,
+                Parent       = Items.Inner,
+            })
+
+            Items.BoxGradient = Esp:Create("UIGradient", {
+                Parent = Items.UIStroke,
+            })
+
+            Items.Inner2 = Esp:Create("Frame", {
+                Parent               = Items.Inner,
+                Name                 = "\0",
+                BackgroundTransparency = 1,
+                Position             = dim2(0, 1, 0, 1),
+                BorderColor3         = rgb(0, 0, 0),
+                Size                 = dim2(1, -2, 1, -2),
+                BorderSizePixel      = 0,
+                BackgroundColor3     = rgb(255, 255, 255),
+            })
+
+            Esp:Create("UIStroke", {
+                Color        = Color3.new(0.1, 0.1, 0.1),
+                Parent       = Items.Inner2,
+                LineJoinMode = Enum.LineJoinMode.Miter,
+            })
+
+            Items.Healthbar = Esp:Create("Frame", {
+                Name                 = "Left",
+                Parent               = Esp.Cache,
+                BorderColor3         = rgb(0, 0, 0),
+                Size                 = dim2(0, 3, 0, 3),
+                BorderSizePixel      = 0,
+                BackgroundColor3     = Color3.new(0.1, 0.1, 0.1),
+                BackgroundTransparency = 0,
+            })
+
+            Items.HealthbarAccent = Esp:Create("Frame", {
+                Parent           = Items.Healthbar,
+                Name             = "accent",
+                Position         = dim2(0, 1, 0, 1),
+                BorderColor3     = rgb(0, 0, 0),
+                Size             = dim2(1, -2, 1, -2),
+                BorderSizePixel  = 0,
+                BackgroundColor3 = rgb(255, 255, 255),
+            })
+
+            Items.HealthbarFade = Esp:Create("Frame", {
+                Parent           = Items.Healthbar,
+                Name             = "health fade",
+                Position         = dim2(0, 1, 0, 1),
+                BorderColor3     = rgb(0, 0, 0),
+                Size             = dim2(1, -2, 1, 0),
+                BorderSizePixel  = 0,
+                BackgroundColor3 = Color3.new(0.1, 0.1, 0.1),
+            })
+
+            Items.HealthbarGradient = Esp:Create("UIGradient", {
+                Enabled  = true,
+                Parent   = Items.HealthbarAccent,
+                Rotation = 90,
+                Color    = rgbseq{rgbkey(0, rgb(0, 255, 0)), rgbkey(0.5, rgb(255, 125, 0)), rgbkey(1, rgb(255, 0, 0))},
+            })
+
+            Items.HealthbarText = Esp:Create("TextLabel", {
+                FontFace             = Fonts.ProggyTiny,
+                TextColor3           = rgb(255, 255, 255),
+                BorderColor3         = rgb(0, 0, 0),
+                Parent               = Esp.Cache,
+                Name                 = "\0",
+                Visible              = true,
+                BackgroundTransparency = 1,
+                Size                 = dim2(0, 0, 0, 0),
+                BorderSizePixel      = 0,
+                AutomaticSize        = Enum.AutomaticSize.XY,
+                TextSize             = 9,
+                BackgroundColor3     = rgb(255, 255, 255),
+            })
+
+            Esp:Create("UIStroke", {
+                Parent       = Items.HealthbarText,
+                LineJoinMode = Enum.LineJoinMode.Miter,
+                Color        = Color3.new(0.1, 0.1, 0.1),
+            })
+
+            Items.Flags = Esp:Create("TextLabel", {
+                FontFace             = Fonts.ProggyTiny,
+                TextColor3           = rgb(255, 255, 255),
+                BorderColor3         = rgb(0, 0, 0),
+                Parent               = Esp.Cache,
+                Name                 = "Left",
+                BackgroundTransparency = 1,
+                Size                 = dim2(1, 0, 0, 0),
+                BorderSizePixel      = 0,
+                AutomaticSize        = Enum.AutomaticSize.XY,
+                TextSize             = 9,
+                BackgroundColor3     = rgb(255, 255, 255),
+            })
+            Esp:Create("UIStroke", { Parent = Items.Flags, LineJoinMode = Enum.LineJoinMode.Miter, Color = Color3.new(0.1, 0.1, 0.1) })
+
+            Items.Text = Esp:Create("TextLabel", {
+                FontFace             = Fonts.ProggyTiny,
+                TextColor3           = rgb(255, 255, 255),
+                BorderColor3         = rgb(0, 0, 0),
+                Parent               = Esp.Cache,
+                Name                 = "Left",
+                Text                 = Player.Name,
+                BackgroundTransparency = 1,
+                Size                 = dim2(1, 0, 0, 0),
+                BorderSizePixel      = 0,
+                AutomaticSize        = Enum.AutomaticSize.XY,
+                TextSize             = 9,
+                BackgroundColor3     = rgb(255, 255, 255),
+            })
+            Esp:Create("UIStroke", { Parent = Items.Text, LineJoinMode = Enum.LineJoinMode.Miter, Color = Color3.new(0.1, 0.1, 0.1) })
+
+            Items.Distance = Esp:Create("TextLabel", {
+                FontFace             = Fonts.ProggyTiny,
+                TextColor3           = rgb(255, 255, 255),
+                BorderColor3         = rgb(0, 0, 0),
+                Parent               = Esp.Cache,
+                Name                 = "Left",
+                BackgroundTransparency = 1,
+                Size                 = dim2(1, 0, 0, 0),
+                BorderSizePixel      = 0,
+                AutomaticSize        = Enum.AutomaticSize.XY,
+                TextSize             = 9,
+                BackgroundColor3     = rgb(255, 255, 255),
+            })
+            Esp:Create("UIStroke", { Parent = Items.Distance, LineJoinMode = Enum.LineJoinMode.Miter, Color = Color3.new(0.1, 0.1, 0.1) })
+
+            Items.Weapon = Esp:Create("TextLabel", {
+                FontFace             = Fonts.ProggyTiny,
+                TextColor3           = rgb(255, 255, 255),
+                BorderColor3         = rgb(0, 0, 0),
+                Parent               = Esp.Cache,
+                Name                 = "Left",
+                BackgroundTransparency = 1,
+                Size                 = dim2(1, 0, 0, 0),
+                BorderSizePixel      = 0,
+                AutomaticSize        = Enum.AutomaticSize.XY,
+                TextSize             = 9,
+                BackgroundColor3     = rgb(255, 255, 255),
+            })
+            Esp:Create("UIStroke", { Parent = Items.Weapon, LineJoinMode = Enum.LineJoinMode.Miter, Color = Color3.new(0.1, 0.1, 0.1) })
         end
 
-        function Esp:BoundingBox(CFrame, Size)
-            local Corners = table.create(#self.Vertices)
-            for i = 1, #self.Vertices do
-                Corners[i] = self:WorldToScreen((CFrame + Size * 0.5 * self.Vertices[i]).Position)
-            end
+        Data.RefreshChams = function()
+            local Character = Data.Player and Data.Player.Character
+            if not Character then return end
 
-            local Min = Vector2.zero.Min(Camera.ViewportSize, unpack(Corners))
-            local Max = Vector2.zero.Max(Vector2.zero, unpack(Corners))
+            local Humanoid = Character:FindFirstChildOfClass("Humanoid")
+            if not Humanoid then return end
 
-            return {
-                ["Corners"] = Corners,
-                ["TopLeft"] = Vector2.new(math.floor(Min.X), math.floor(Min.Y)),
-                ["TopRight"] = Vector2.new(math.floor(Max.X), math.floor(Min.Y)),
-                ["BottomLeft"] = Vector2.new(math.floor(Min.X), math.floor(Max.Y)),
-                ["BottomRight"] = Vector2.new(math.floor(Max.X), math.floor(Max.Y))
-            }
-        end
+            local Factor = Humanoid.RigType == Enum.HumanoidRigType.R15 and 2 or 3
 
-        function Esp:GetBoundingBox(Parts)
-            local Min, Max
-            for i = 1, #Parts do
-                local Part = Parts[i]
-                local CFrame, Size = Part.CFrame, Part.Size
-                Min = Vector3.zero.Min(Min or CFrame.Position, (CFrame - Size * 0.5).Position)
-                Max = Vector3.zero.Max(Max or CFrame.Position, (CFrame + Size * 0.5).Position)
-            end
-
-            local Center = (Min + Max) * 0.5
-            local Front = Vector3.new(Center.X, Center.Y, Max.Z)
-            return CFrame.new(Center, Front), Max - Min
-        end
-        
-        function Esp:Lerp(start, finish, t)
-            t = t or 1 / 8
-
-            return start * (1 - t) + finish * t
-        end
-
-        function Esp:Tween(obj, props, info)
-            local tween = TweenService:Create(obj, info, props)
-            tween:Play()
-            
-            return tween
-        end
-
-        function Esp.CreateObject( player )
-            local Data = {
-                Player = player,
-                Type = "player",
-                Drawings = { },
-                Items = { },
-                Handles = { },
-                LerpHealth = 0,
-            }; Data.Chams = true;
-
-            local Items = Data.Items; do
-                -- Holder
-                    Items.Holder = Esp:Create( "Frame" , {
-                        Parent = Esp.ScreenGui;
-                        Visible = false;
-                        Name = "\0";
-                        BackgroundTransparency = 1;
-                        Position = dim2(0.4332570433616638, 0, 0.3255814015865326, 0);
-                        BorderColor3 = rgb(0, 0, 0);
-                        Size = dim2(0, 211, 0, 240);
-                        BorderSizePixel = 0;
-                        BackgroundColor3 = rgb(255, 255, 255)
-                    });
-
-                    Items.HolderGradient = Library:Create( "UIGradient" , {
-                        Rotation = 0;
-                        Name = "\0";
-                        Color = rgbseq{rgbkey(0, rgb(255, 255, 255)), rgbkey(1, rgb(255, 255, 255))};
-                        Parent = Items.Holder;
-                        Enabled = true
-                    });
-
-                    -- All directions have a set default parent of Items.Holder 
-
-                    -- Directions 
-                        Items.Left = Esp:Create( "Frame" , {
-                            Parent = Items.Holder;
-                            Size = dim2(0, 0, 1, 0);
-                            Name = "\0";
-                            BackgroundTransparency = 1;
-                            Position = dim2(0, -1, 0, 0);
-                            BorderColor3 = rgb(0, 0, 0);
-                            ZIndex = 2;
-                            BorderSizePixel = 0;
-                            BackgroundColor3 = rgb(255, 255, 255)
-                        });
-
-                        Items.HealthbarTextsLeft = Esp:Create( "Frame", {
-                            Visible = true;
-                            BorderColor3 = rgb(0, 0, 0);
-                            Parent = Esp.Cache;
-                            Name = "\0";
-                            BackgroundTransparency = 1;
-                            LayoutOrder = -100;
-                            BorderSizePixel = 0;
-                            ZIndex = 0;
-                            AutomaticSize = Enum.AutomaticSize.X;
-                            BackgroundColor3 = rgb(255, 255, 255)
-                        });
-
-                        Esp:Create( "UIListLayout" , {
-                            FillDirection = Enum.FillDirection.Horizontal;
-                            HorizontalAlignment = Enum.HorizontalAlignment.Right;
-                            VerticalFlex = Enum.UIFlexAlignment.Fill;
-                            Parent = Items.Left;
-                            Padding = dim(0, 1);
-                            SortOrder = Enum.SortOrder.LayoutOrder
-                        });
-
-                        Items.LeftTexts = Esp:Create( "Frame" , {
-                            LayoutOrder = -100;
-                            Parent = Items.Left;
-                            BackgroundTransparency = 1;
-                            Name = "\0";
-                            BorderColor3 = rgb(0, 0, 0);
-                            BorderSizePixel = 0;
-                            AutomaticSize = Enum.AutomaticSize.X;
-                            BackgroundColor3 = rgb(255, 255, 255)
-                        });
-
-                        Esp:Create( "UIListLayout" , {
-                            Parent = Items.LeftTexts;
-                            Padding = dim(0, 1);
-                            SortOrder = Enum.SortOrder.LayoutOrder
-                        });
-
-                        Items.Bottom = Esp:Create( "Frame" , {
-                            Parent = Items.Holder;
-                            Size = dim2(1, 0, 0, 0);
-                            Name = "\0";
-                            BackgroundTransparency = 1;
-                            Position = dim2(0, 0, 1, 1);
-                            BorderColor3 = rgb(0, 0, 0);
-                            ZIndex = 2;
-                            BorderSizePixel = 0;
-                            BackgroundColor3 = rgb(255, 255, 255)
-                        });
-
-                        Items.HealthbarTextsBottom = Esp:Create( "Frame", {
-                            Visible = true;
-                            BorderColor3 = rgb(0, 0, 0);
-                            Parent = Esp.Cache;
-                            Name = "\0";
-                            BackgroundTransparency = 1;
-                            LayoutOrder = 0;
-                            BorderSizePixel = 0;
-                            ZIndex = 0;
-                            AutomaticSize = Enum.AutomaticSize.Y;
-                            BackgroundColor3 = rgb(255, 255, 255)
-                        });
-
-                        Esp:Create( "UIListLayout" , {
-                            SortOrder = Enum.SortOrder.LayoutOrder;
-                            HorizontalAlignment = Enum.HorizontalAlignment.Center;
-                            HorizontalFlex = Enum.UIFlexAlignment.Fill;
-                            Parent = Items.Bottom;
-                            Padding = dim(0, 1)
-                        });
-
-                        Items.BottomTexts = Esp:Create( "Frame", {
-                            LayoutOrder = 1;
-                            Parent = Items.Bottom;
-                            BackgroundTransparency = 1;
-                            Name = "\0";
-                            BorderColor3 = rgb(0, 0, 0);
-                            BorderSizePixel = 0;
-                            AutomaticSize = Enum.AutomaticSize.XY;
-                            BackgroundColor3 = rgb(255, 255, 255)
-                        });
-
-                        Esp:Create( "UIListLayout", {
-                            Parent = Items.BottomTexts;
-                            Padding = dim(0, 1);
-                            SortOrder = Enum.SortOrder.LayoutOrder
-                        });
-
-                        Items.Top = Esp:Create( "Frame" , {
-                            Parent = Items.Holder;
-                            Size = dim2(1, 0, 0, 0);
-                            Name = "\0";
-                            BackgroundTransparency = 1;
-                            Position = dim2(0, 0, 0, -1);
-                            BorderColor3 = rgb(0, 0, 0);
-                            ZIndex = 2;
-                            BorderSizePixel = 0;
-                            BackgroundColor3 = rgb(255, 255, 255)
-                        });
-
-                        Items.HealthbarTextsTop = Esp:Create( "Frame", {
-                            Visible = true;
-                            BorderColor3 = rgb(0, 0, 0);
-                            Parent = Esp.Cache;
-                            Name = "\0";
-                            BackgroundTransparency = 1;
-                            LayoutOrder = -100;
-                            BorderSizePixel = 0;
-                            ZIndex = 0;
-                            AutomaticSize = Enum.AutomaticSize.Y;
-                            BackgroundColor3 = rgb(255, 255, 255)
-                        });
-
-                        Esp:Create( "UIListLayout" , {
-                            VerticalAlignment = Enum.VerticalAlignment.Bottom;
-                            SortOrder = Enum.SortOrder.LayoutOrder;
-                            HorizontalAlignment = Enum.HorizontalAlignment.Center;
-                            HorizontalFlex = Enum.UIFlexAlignment.Fill;
-                            Parent = Items.Top;
-                            Padding = dim(0, 1)
-                        });
-
-                        Items.TopTexts = Esp:Create( "Frame", {
-                            LayoutOrder = -100;
-                            Parent = Items.Top;
-                            BackgroundTransparency = 1;
-                            Name = "\0";
-                            BorderColor3 = rgb(0, 0, 0);
-                            BorderSizePixel = 0;
-                            AutomaticSize = Enum.AutomaticSize.XY;
-                            BackgroundColor3 = rgb(255, 255, 255)
-                        });
-
-                        Esp:Create( "UIListLayout", {
-                            Parent = Items.TopTexts;
-                            Padding = dim(0, 1);
-                            SortOrder = Enum.SortOrder.LayoutOrder
-                        });
-
-                        Items.Right = Esp:Create( "Frame" , {
-                            Parent = Esp.Cache;
-                            Size = dim2(0, 0, 1, 0);
-                            Name = "\0";
-                            BackgroundTransparency = 1;
-                            Position = dim2(1, 2, 0, 0);
-                            BorderColor3 = rgb(0, 0, 0);
-                            ZIndex = 2;
-                            BorderSizePixel = 0;
-                            BackgroundColor3 = rgb(255, 255, 255)
-                        });
-
-                        Esp:Create( "UIListLayout" , {
-                            FillDirection = Enum.FillDirection.Horizontal;
-                            VerticalFlex = Enum.UIFlexAlignment.Fill;
-                            Parent = Items.Right;
-                            Padding = dim(0, 1);
-                            SortOrder = Enum.SortOrder.LayoutOrder
-                        });
-                        
-                        Items.RightTexts = Esp:Create( "Frame" , {
-                            LayoutOrder = 100;
-                            Parent = Esp.Cache;
-                            BackgroundTransparency = 1;
-                            Name = "\0";
-                            BorderColor3 = rgb(0, 0, 0);
-                            BorderSizePixel = 0;
-                            AutomaticSize = Enum.AutomaticSize.X;
-                            BackgroundColor3 = rgb(255, 255, 255)
-                        });
-                        
-                        Esp:Create( "UIListLayout" , {
-                            Parent = Items.RightTexts;
-                            Padding = dim(0, 1);
-                            SortOrder = Enum.SortOrder.LayoutOrder
-                        });
-
-                        Items.HealthbarTextsRight = Esp:Create( "Frame", {
-                            Visible = true;
-                            BorderColor3 = rgb(0, 0, 0);
-                            Parent = Esp.Cache;
-                            Name = "\0";
-                            BackgroundTransparency = 1;
-                            LayoutOrder = 99;
-                            BorderSizePixel = 0;
-                            ZIndex = 0;
-                            AutomaticSize = Enum.AutomaticSize.X;
-                            BackgroundColor3 = rgb(255, 255, 255)
-                        });
-                    --
-                -- 
-
-                -- Normal Box 
-                    Items.Box = Esp:Create( "Frame" , {
-                        Parent = Esp.Cache; -- Items.Holder
-                        Name = "\0";
-                        BackgroundTransparency = 1;
-                        Position = dim2(0, 1, 0, 1);
-                        BorderColor3 = rgb(0, 0, 0);
-                        Size = dim2(1, -2, 1, -2);
-                        BorderSizePixel = 0;
-                        BackgroundColor3 = rgb(255, 255, 255)
-                    });
-
-                    Esp:Create( "UIStroke" , {  
-                        Parent = Items.Box;
-                        LineJoinMode = Enum.LineJoinMode.Miter,
-                        Color = Color3.new(0.1, 0.1, 0.1)
-                    });
-
-                    Items.Inner = Esp:Create( "Frame" , {
-                        Parent = Items.Box;
-                        Name = "\0";
-                        BackgroundTransparency = 1;
-                        Position = dim2(0, 1, 0, 1);
-                        BorderColor3 = rgb(0, 0, 0);
-                        Size = dim2(1, -2, 1, -2);
-                        BorderSizePixel = 0;
-                        BackgroundColor3 = rgb(255,255,255)
-                    });
-
-                    Items.UIStroke = Esp:Create( "UIStroke" , {
-                        Color = rgb(255,255,255);
-                        LineJoinMode = Enum.LineJoinMode.Miter;
-                        Parent = Items.Inner
-                    });
-
-                    Items.BoxGradient = Esp:Create( "UIGradient" , {
-                        Parent = Items.UIStroke
-                    });
-
-                    Items.Inner2 = Esp:Create( "Frame" , {
-                        Parent = Items.Inner;
-                        Name = "\0";
-                        BackgroundTransparency = 1;
-                        Position = dim2(0, 1, 0, 1);
-                        BorderColor3 = rgb(0, 0, 0);
-                        Size = dim2(1, -2, 1, -2);
-                        BorderSizePixel = 0;
-                        BackgroundColor3 = rgb(255, 255, 255)
-                    });
-
-                    Esp:Create( "UIStroke" , {
-                        Color = Color3.new(0.1, 0.1, 0.1);
-                        Parent = Items.Inner2;
-                        LineJoinMode = Enum.LineJoinMode.Miter
-                    });
-                -- 
-                
-                -- Healthbar
-                    Items.Healthbar = Esp:Create( "Frame" , {
-                        Name = "Left";
-                        Parent = Esp.Cache;
-                        BorderColor3 = rgb(0, 0, 0);
-                        Size = dim2(0, 3, 0, 3);
-                        BorderSizePixel = 0;
-                        BackgroundColor3 = Color3.new(0.1, 0.1, 0.1),
-                        BackgroundTransparency = 0
-                    });
-
-                    Items.HealthbarAccent = Esp:Create( "Frame" , {
-                        Parent = Items.Healthbar;
-                        Name = "accent";
-                        Position = dim2(0, 1, 0, 1);
-                        BorderColor3 = rgb(0, 0, 0);
-                        Size = dim2(1, -2, 1, -2);
-                        BorderSizePixel = 0;
-                        BackgroundColor3 = rgb(255, 255, 255)
-                    });
-
-                    Items.HealthbarFade = Esp:Create( "Frame" , {
-                        Parent = Items.Healthbar;
-                        Name = "health fade";
-                        Position = dim2(0, 1, 0, 1);
-                        BorderColor3 = rgb(0, 0, 0);
-                        Size = dim2(1, -2, 1, 0);
-                        BorderSizePixel = 0;
-                        BackgroundColor3 = Color3.new(0.1, 0.1, 0.1)
-                    });
-
-                    Items.HealthbarGradient = Esp:Create( "UIGradient" , {
-                        Enabled = true;
-                        Parent = Items.HealthbarAccent;
-                        Rotation = 90;
-                        Color = rgbseq{rgbkey(0, rgb(0, 255, 0)), rgbkey(0.5, rgb(255, 125, 0)), rgbkey(1, rgb(255, 0, 0))}
-                    });
-
-                    Items.HealthbarText = Esp:Create( "TextLabel", {
-                        FontFace = Fonts.ProggyTiny;
-                        TextColor3 = rgb(255, 255, 255);
-                        BorderColor3 = rgb(0, 0, 0);
-                        Parent = Esp.Cache; -- Items.HealthbarTextsLeft
-                        Name = "\0";
-                        Visible = true; 
-                        BackgroundTransparency = 1;
-                        Size = dim2(0, 0, 0, 0);
-                        BorderSizePixel = 0;
-                        AutomaticSize = Enum.AutomaticSize.XY;
-                        TextSize = 9;
-                        BackgroundColor3 = rgb(255, 255, 255)
-                    });
-
-                    Esp:Create( "UIStroke", {
-                        Parent = Items.HealthbarText;
-                        LineJoinMode = Enum.LineJoinMode.Miter,
-                        Color = Color3.new(0.1, 0.1, 0.1)
-                    });
-                -- 
-
-                -- Texts
-                    Items.Flags = Esp:Create("TextLabel", {
-                    FontFace = Fonts.ProggyTiny;
-                    TextColor3 = rgb(255, 255, 255);
-                    BorderColor3 = rgb(0, 0, 0);
-                    Parent = Esp.Cache;
-                    Name = "Left";
-                    BackgroundTransparency = 1;
-                    Size = dim2(1, 0, 0, 0);
-                    BorderSizePixel = 0;
-                    AutomaticSize = Enum.AutomaticSize.XY;
-                    TextSize = 9;
-                    BackgroundColor3 = rgb(255, 255, 255)
-                });
-                Esp:Create("UIStroke", { Parent = Items.Flags; LineJoinMode = Enum.LineJoinMode.Miter, Color = Color3.new(0.1, 0.1, 0.1) });
-                Items.Text = Esp:Create("TextLabel", {
-                    FontFace = Fonts.ProggyTiny;
-                    TextColor3 = rgb(255, 255, 255);
-                    BorderColor3 = rgb(0, 0, 0);
-                    Parent = Esp.Cache;
-                    Name = "Left";
-                    Text = player.Name;
-                    BackgroundTransparency = 1;
-                    Size = dim2(1, 0, 0, 0);
-                    BorderSizePixel = 0;
-                    AutomaticSize = Enum.AutomaticSize.XY;
-                    TextSize = 9;
-                    BackgroundColor3 = rgb(255, 255, 255)
-                });
-                Esp:Create("UIStroke", { Parent = Items.Text; LineJoinMode = Enum.LineJoinMode.Miter, Color = Color3.new(0.1, 0.1, 0.1) });
-                Items.Distance = Esp:Create("TextLabel", {
-                    FontFace = Fonts.ProggyTiny;
-                    TextColor3 = rgb(255, 255, 255);
-                    BorderColor3 = rgb(0, 0, 0);
-                    Parent = Esp.Cache;
-                    Name = "Left";
-                    BackgroundTransparency = 1;
-                    Size = dim2(1, 0, 0, 0);
-                    BorderSizePixel = 0;
-                    AutomaticSize = Enum.AutomaticSize.XY;
-                    TextSize = 9;
-                    BackgroundColor3 = rgb(255, 255, 255)
-                });
-                Esp:Create("UIStroke", { Parent = Items.Distance; LineJoinMode = Enum.LineJoinMode.Miter,Color = Color3.new(0.1, 0.1, 0.1) });
-                Items.Weapon = Esp:Create("TextLabel", {
-                    FontFace = Fonts.ProggyTiny;
-                    TextColor3 = rgb(255, 255, 255);
-                    BorderColor3 = rgb(0, 0, 0);
-                    Parent = Esp.Cache;
-                    Name = "Left";
-                    BackgroundTransparency = 1;
-                    Size = dim2(1, 0, 0, 0);
-                    BorderSizePixel = 0;
-                    AutomaticSize = Enum.AutomaticSize.XY;
-                    TextSize = 9;
-                    BackgroundColor3 = rgb(255, 255, 255)
-                });
-                Esp:Create("UIStroke", { Parent = Items.Weapon; LineJoinMode = Enum.LineJoinMode.Miter, Color = Color3.new(0.1, 0.1, 0.1) });
-                -- 
-            end  
-            Data.RefreshChams = function()
-                local Character = Data.Player and Data.Player.Character
-                if not Character then return end
-                
-                local Humanoid = Character:FindFirstChildOfClass("Humanoid")
-                if not Humanoid then return end
-                
-                local Factor = Humanoid.RigType == Enum.HumanoidRigType.R15 and 2 or 3
-                
-                for _, Handle in Data.Handles do
-                    if Handle then 
-                        Handle.Adornee = nil
-                        Handle:Destroy() 
-                    end
-                end
-                Data.Handles = {}
-
-                local Enabled = Flags["Players_CHAMS"]
-                local FillSettings = Flags["Players_FILL_CHAMS"]
-                local OutlineSettings = Flags["Players_OUTLINE_CHAMS"]
-
-                for _, Item in Character:GetChildren() do
-                    if not Item:IsA("BasePart") or Item.Name == "HumanoidRootPart" or Item.Transparency == 1 then
-                        continue
-                    end
-
-                    local IsHead = (Item.Name == "Head")
-                    local AdornType = IsHead and "CylinderHandleAdornment" or "BoxHandleAdornment"
-                    
-                    local Fill = Esp:Create(AdornType, {
-                        Transparency = 0.5;
-                        Color3 = FillSettings.Color;
-                        Name = "Fill";
-                        Visible = Enabled;
-                        Parent = Item;
-                        Adornee = Item;
-                        AlwaysOnTop = true;
-                        ZIndex = 1;
-                        Radius = IsHead and (Item.Size.X / Factor) + 0.02 or nil;
-                        Size = not IsHead and Item.Size + Vector3.new(0.01, 0.01, 0.01) or nil;
-                        CFrame = IsHead and cfr(0, 0, 0, 1, 0, 0, 0, 0, -1, 0, 1, 0) or nil;
-                    });
-
-                    local OutlineColor = Color3.new(OutlineSettings.Color.R * 5, OutlineSettings.Color.G * 5, OutlineSettings.Color.B * 5)
-                    local Outline = Esp:Create(AdornType, {
-                        Transparency = -1;
-                        Color3 = OutlineColor;
-                        Name = "Outline";
-                        Visible = Enabled;
-                        Parent = Item;
-                        Shading = Enum.AdornShading.XRayShaded;
-                        Adornee = Item;
-                        AlwaysOnTop = true;
-                        ZIndex = -1;
-                        Radius = IsHead and (Item.Size.X / Factor) + 0.04 or nil;
-                        Size = not IsHead and Item.Size + Vector3.new(0.05, 0.05, 0.05) or nil;
-                        CFrame = IsHead and cfr(0, 0, 0, 1, 0, 0, 0, 0, -1, 0, 1, 0) or nil;
-                    });
-
-                    table.insert(Data.Handles, Fill)
-                    table.insert(Data.Handles, Outline)
-                end
-            end
-            Data.ToolAdded = function(item)
-                -- if not item:FindFirstChild("ItemRoot") then
-                -- return
-                -- end
-                -- local exists = Data.Info.Character:FindFirstChild(item.Name)
-                -- Items["weapon"].Text = "[" .. item.Name .. "]"
-                -- pcall(function()
-                -- Items["weapon"].Parent = exists and Items["Holder"] or Esp.Cache
-                -- end)
-                -- Refresh
-            end
-            Data.HealthChanged = function(Value)
-                if not MiscOptions then return end
-                if not MiscOptions.Healthbar then return end 
-
-                local Character = Data.Player and Data.Player.Character
-                if not Character then return end
-
-                local Humanoid = Character:FindFirstChildOfClass("Humanoid")
-                if not Humanoid then return end
-                
-                local MaxHealth = Humanoid.MaxHealth
-                local IsHorizontal = MiscOptions.Healthbar_Position == "Top" or MiscOptions.Healthbar_Position == "Bottom"
-                local TargetHealth = math.max(0, Value)
-
-                Items.Holder.Visible = true
-
-                if MiscOptions.Healthbar_Number and Items.HealthbarText.Parent == Esp.Cache then 
-                    Options.Healthbar = MiscOptions.Healthbar_Position 
-                    Options.Healthbar_Number = true
-                end 
-
-                task.spawn(function()
-                    if not Data.LerpHealth then Data.LerpHealth = TargetHealth end
-
-                    local StartTime = tick()
-                    local StartHealth = Data.LerpHealth
-                    local Duration = MiscOptions.Healthbar_Tween and MiscOptions.Healthbar_Easing_Speed or 0
-
-                    while true do
-                        local Elapsed = tick() - StartTime
-                        local Alpha = (Duration > 0) and math.clamp(Elapsed / Duration, 0, 1) or 1
-                        
-                        local TransitionValue = TweenService:GetValue(
-                            Alpha, 
-                            Enum.EasingStyle[MiscOptions.Healthbar_EasingStyle or "Linear"], 
-                            Enum.EasingDirection.Out
-                        )
-                        
-                        local LerpedHealth = StartHealth + (TargetHealth - StartHealth) * TransitionValue
-                        Data.LerpHealth = LerpedHealth
-
-                        local Multiplier = math.clamp(LerpedHealth / MaxHealth, 0, 1)
-                        
-                        local ColorTransition = MiscOptions.Healthbar_Low.Color:Lerp(MiscOptions.Healthbar_Medium.Color, Multiplier)
-                        local ColorFinal = ColorTransition:Lerp(MiscOptions.Healthbar_High.Color, Multiplier)
-
-                        Items.HealthbarFade.Size = dim2(
-                            IsHorizontal and 1 - Multiplier or 1, 
-                            IsHorizontal and -2 or -2, 
-                            IsHorizontal and 0 or 1 - Multiplier, 
-                            (IsHorizontal and Multiplier < 0.99) and 1 or 0
-                        )
-                        Items.HealthbarFade.Position = dim2(IsHorizontal and Multiplier or 0, 1, 0, 1)
-
-                        if MiscOptions.Healthbar_Number and LerpedHealth > 0.1 and LerpedHealth < MaxHealth - 0.1 then
-                            Items.HealthbarText.Text = math.floor(LerpedHealth + 0.5)
-                            Items.HealthbarText.Visible = true
-                        else
-                            Items.HealthbarText.Visible = false
-                        end
-                        
-                        Items.HealthbarText.Position = dim2(0, 0, 0, 0)
-                        Items.HealthbarText.TextColor3 = ColorFinal
-
-                        if Alpha >= 1 then break end
-                        task.wait()
-                    end
-                    
-                    Data.LerpHealth = TargetHealth
-
-                    if TargetHealth <= 0 then
-                        Items.Holder.Visible = false
-                    end
-                end)
-            end
-            Data.RefreshDescendants = function() 
-                if not Esp then 
-                    return 
-                end 
-
-                local Character = (typechar and player) or player.Character or player.CharacterAdded:Wait()
-                local Humanoid = Character:FindFirstChildOfClass("Humanoid")
-                
-                if Humanoid then
-                    Esp:Connection(Humanoid.HealthChanged, Data.HealthChanged)
-                    Data.HealthChanged(Humanoid.Health)
-                end
-                Esp:Connection(Character.ChildAdded, Data.ToolAdded)
-                Esp:Connection(Character.ChildRemoved, Data.ToolAdded)
-
-
-                task.delay(0.1, function()
-                    Data.RefreshChams()
-                end) -- what the gay?
-            end 
-            Data.Destroy = function()
-                if Items["Holder"] then
-                    Items["Holder"].Parent = nil
-                    Items["Holder"]:Destroy()
-                end
-                for _,Handle in Data.Handles do
-                    Handle.Adornee = nil 
+            for _, Handle in Data.Handles do
+                if Handle then
+                    Handle.Adornee = nil
                     Handle:Destroy()
-                    Handle.Parent = nil
-                end
-                if Esp.Players[ player.Name ] then
-                    Esp.Players[ player.Name ] = nil
                 end
             end
-            Data.RefreshDescendants()
-        
-            Esp:Connection(player.CharacterAdded, Data.RefreshDescendants)
-            Esp:Connection(player.CharacterRemoving, Data.Destroy)
-            -- Recaching element holders that arent neccessary <- roblox calculates math for them even if they have no objects in them or invisible ;(
-            for _,ItemParentor in {Items.Left, Items.Right, Items.Top, Items.Bottom} do
-                Esp:Connection(ItemParentor.ChildAdded, function()
-                    task.wait(.1)
-                    if ItemParentor.Parent == nil then
-                        return
-                    end
-                
-                    ItemParentor.Parent = Items.Holder
-                end)
-                Esp:Connection(ItemParentor.ChildRemoved, function()
-                    task.wait(.1)
-                    if #ItemParentor:GetChildren() == 0 then
-                        if ItemParentor.Parent == nil then
-                            return
-                        end
-                        ItemParentor.Parent = Esp.Cache
-                    end
-                end)
+            Data.Handles = {}
+
+            local FillSettings    = Flags["Players_FILL_CHAMS"]
+            local OutlineSettings = Flags["Players_OUTLINE_CHAMS"]
+
+            for _, Item in Character:GetChildren() do
+                if not Item:IsA("BasePart") or Item.Name == "HumanoidRootPart" or Item.Transparency == 1 then
+                    continue
+                end
+
+                local IsHead    = (Item.Name == "Head")
+                local AdornType = IsHead and "CylinderHandleAdornment" or "BoxHandleAdornment"
+
+                local Fill = Esp:Create(AdornType, {
+                    Transparency = 0.5,
+                    Color3       = FillSettings.Color,
+                    Name         = "Fill",
+                    Visible      = false,
+                    Parent       = Item,
+                    Adornee      = Item,
+                    AlwaysOnTop  = true,
+                    ZIndex       = 1,
+                    Radius       = IsHead and (Item.Size.X / Factor) + 0.02 or nil,
+                    Size         = not IsHead and Item.Size + Vector3.new(0.01, 0.01, 0.01) or nil,
+                    CFrame       = IsHead and cfr(0, 0, 0, 1, 0, 0, 0, 0, -1, 0, 1, 0) or nil,
+                })
+
+                local OutlineColor = Color3.new(OutlineSettings.Color.R * 5, OutlineSettings.Color.G * 5, OutlineSettings.Color.B * 5)
+                local Outline = Esp:Create(AdornType, {
+                    Transparency = -1,
+                    Color3       = OutlineColor,
+                    Name         = "Outline",
+                    Visible      = false,
+                    Parent       = Item,
+                    Shading      = Enum.AdornShading.XRayShaded,
+                    Adornee      = Item,
+                    AlwaysOnTop  = true,
+                    ZIndex       = -1,
+                    Radius       = IsHead and (Item.Size.X / Factor) + 0.04 or nil,
+                    Size         = not IsHead and Item.Size + Vector3.new(0.05, 0.05, 0.05) or nil,
+                    CFrame       = IsHead and cfr(0, 0, 0, 1, 0, 0, 0, 0, -1, 0, 1, 0) or nil,
+                })
+
+                table.insert(Data.Handles, Fill)
+                table.insert(Data.Handles, Outline)
             end
-            for _,HealthHolder in {"Right", "Left", "Top", "Bottom"} do
-                local Parent = Items["HealthbarTexts" .. HealthHolder]
-                Esp:Connection(Parent.ChildAdded, function()
-                    task.wait(.1)
-                    if Parent.Parent == nil then
-                        return
-                    end
-                    Parent.Parent = Items[HealthHolder]
-                end)
-                Esp:Connection(Parent.ChildRemoved, function()
-                    task.wait(.1)
-                    if #Parent:GetChildren() == 0 then
-                        if Parent.Parent == nil then
-                            return
-                        end
-                        Parent.Parent = Esp.Cache
-                    end
-                end)
-            end
-            for _,TextHolder in {"Right", "Left", "Bottom", "Top"} do
-                local Parent = Items[TextHolder .. "Texts"]
-                Esp:Connection(Parent.ChildAdded, function()
-                    task.wait(.1)
-                    if Parent.Parent == nil then
-                        return
-                    end
-                    Parent.Parent = Items[TextHolder]
-                end)
-                Esp:Connection(Parent.ChildRemoved, function()
-                    task.wait(.1)
-                    if #Parent:GetChildren() == 0 then
-                        if Parent.Parent == nil then
-                            return
-                        end
-                        Parent.Parent = Esp.Cache
-                    end
-                end)
-            end
-            Esp.Players[ player.Name ] = Data
         end
 
-        function Esp.Update()
-            if not Esp or not MiscOptions["Enabled"] then 
-                for _, Data in Esp.Players do
-                    if Data.Items and Data.Items.Holder then 
-                        Data.Items.Holder.Visible = false 
-                    end
-                end
-                return 
+        Data.ToolAdded = function(Item)
+        end
+
+        Data.HealthChanged = function(Value)
+            if not MiscOptions then return end
+            if not MiscOptions.Healthbar then return end
+
+            local Character = Data.Player and Data.Player.Character
+            if not Character then return end
+
+            local Humanoid = Character:FindFirstChildOfClass("Humanoid")
+            if not Humanoid then return end
+
+            local MaxHealth    = Humanoid.MaxHealth
+            local IsHorizontal = MiscOptions.Healthbar_Position == "Top" or MiscOptions.Healthbar_Position == "Bottom"
+            local TargetHealth = math.max(0, Value)
+
+            Items.Holder.Visible = true
+
+            if MiscOptions.Healthbar_Number and Items.HealthbarText.Parent == Esp.Cache then
+                Options.Healthbar        = MiscOptions.Healthbar_Position
+                Options.Healthbar_Number = true
             end
 
-            local MaxDistance = MiscOptions["Render Distance"] or 10000
+            task.spawn(function()
+                if not Data.LerpHealth then Data.LerpHealth = TargetHealth end
 
-            for _, Data in Esp.Players do
-                local Player = Data.Player
-                local Items = Data.Items
-                local Character = Player and Player.Character
-                local Root = Character and Character:FindFirstChild("HumanoidRootPart")
-                local Humanoid = Character and Character:FindFirstChildOfClass("Humanoid")
+                local StartTime   = tick()
+                local StartHealth = Data.LerpHealth
+                local Duration    = MiscOptions.Healthbar_Tween and MiscOptions.Healthbar_Easing_Speed or 0
 
-                if not Character or not Root or not Items or not Items.Holder then
-                    if Items and Items.Holder then Items.Holder.Visible = false end
-                    continue
+                while true do
+                    local Elapsed         = tick() - StartTime
+                    local Alpha           = (Duration > 0) and math.clamp(Elapsed / Duration, 0, 1) or 1
+                    local TransitionValue = TweenService:GetValue(Alpha, Enum.EasingStyle[MiscOptions.Healthbar_EasingStyle or "Linear"], Enum.EasingDirection.Out)
+                    local LerpedHealth    = StartHealth + (TargetHealth - StartHealth) * TransitionValue
+                    Data.LerpHealth       = LerpedHealth
+
+                    local Multiplier      = math.clamp(LerpedHealth / MaxHealth, 0, 1)
+                    local ColorTransition = MiscOptions.Healthbar_Low.Color:Lerp(MiscOptions.Healthbar_Medium.Color, Multiplier)
+                    local ColorFinal      = ColorTransition:Lerp(MiscOptions.Healthbar_High.Color, Multiplier)
+
+                    Items.HealthbarFade.Size = dim2(
+                        IsHorizontal and 1 - Multiplier or 1,
+                        IsHorizontal and -2 or -2,
+                        IsHorizontal and 0 or 1 - Multiplier,
+                        (IsHorizontal and Multiplier < 0.99) and 1 or 0
+                    )
+                    Items.HealthbarFade.Position = dim2(IsHorizontal and Multiplier or 0, 1, 0, 1)
+
+                    if MiscOptions.Healthbar_Number and LerpedHealth > 0.1 and LerpedHealth < MaxHealth - 0.1 then
+                        Items.HealthbarText.Text    = math.floor(LerpedHealth + 0.5)
+                        Items.HealthbarText.Visible = true
+                    else
+                        Items.HealthbarText.Visible = false
+                    end
+
+                    Items.HealthbarText.Position   = dim2(0, 0, 0, 0)
+                    Items.HealthbarText.TextColor3 = ColorFinal
+
+                    if Alpha >= 1 then break end
+                    task.wait()
                 end
-            
-                local Distance = (Camera.CFrame.Position - Root.Position).Magnitude
-                local _, OnScreen = Esp:WorldToScreen(Root.Position)
 
-                if Distance > MaxDistance or not OnScreen then
+                Data.LerpHealth = TargetHealth
+
+                if TargetHealth <= 0 then
                     Items.Holder.Visible = false
-                    continue
                 end
+            end)
+        end
 
-                local Parts = {}
-                for _, Part in Character:GetChildren() do
-                    if Part:IsA("BasePart") and Part.Name ~= "HumanoidRootPart" then
-                        table.insert(Parts, Part)
-                    end
+        Data.RefreshDescendants = function()
+            if not Esp then return end
+
+            local Character = (typechar and Player) or Player.Character or Player.CharacterAdded:Wait()
+            local Humanoid  = Character:FindFirstChildOfClass("Humanoid")
+
+            if Humanoid then
+                Esp:Connection(Humanoid.HealthChanged, Data.HealthChanged)
+                Data.HealthChanged(Humanoid.Health)
+            end
+            Esp:Connection(Character.ChildAdded, Data.ToolAdded)
+            Esp:Connection(Character.ChildRemoved, Data.ToolAdded)
+
+            task.delay(0.1, function()
+                Data.RefreshChams()
+            end)
+        end
+
+        Data.Destroy = function()
+            if Items["Holder"] then
+                Items["Holder"].Parent = nil
+                Items["Holder"]:Destroy()
+            end
+            for _, Handle in Data.Handles do
+                Handle.Adornee = nil
+                Handle:Destroy()
+                Handle.Parent = nil
+            end
+            if Esp.Players[Player.Name] then
+                Esp.Players[Player.Name] = nil
+            end
+        end
+
+        Data.RefreshDescendants()
+
+        Esp:Connection(Player.CharacterAdded, Data.RefreshDescendants)
+        Esp:Connection(Player.CharacterRemoving, function()
+            for _, Handle in Data.Handles do
+                if Handle then
+                    Handle.Adornee = nil
+                    pcall(function() Handle:Destroy() end)
                 end
+            end
+            Data.Handles = {}
+            if Data.Items and Data.Items.Holder then
+                Data.Items.Holder.Visible = false
+            end
+        end)
 
-                local Corners = Esp:BoundingBox(Esp:GetBoundingBox(Parts))
-                
-                local Holder = Items.Holder
-                Holder.Visible = true
-                Holder.Position = UDim2.fromOffset(Corners.TopLeft.X, Corners.TopLeft.Y)
-                Holder.Size = UDim2.fromOffset(
-                    Corners.BottomRight.X - Corners.TopLeft.X,
-                    Corners.BottomRight.Y - Corners.TopLeft.Y
-                )
-
-                -- Boxes & Visual Types
-                Items.Box.Parent = MiscOptions["Boxes"] and Holder or Esp.Cache
-
-                -- Box Fill
-                Holder.BackgroundTransparency = MiscOptions["Box Fill"] and 0 or 1
-                if MiscOptions["Box Fill"] then
-                    Items.HolderGradient.Rotation = MiscOptions["Box Fill Rotation"]
-                    Items.HolderGradient.Transparency = numseq{
-                        numkey(0, MiscOptions["Box Fill 1"].Transparency), 
-                        numkey(1, MiscOptions["Box Fill 2"].Transparency)
-                    }
-                    Items.HolderGradient.Color = rgbseq{
-                        rgbkey(0, MiscOptions["Box Fill 1"].Color), 
-                        rgbkey(1, MiscOptions["Box Fill 2"].Color)
-                    }
+        for _, ItemParentor in {Items.Left, Items.Right, Items.Top, Items.Bottom} do
+            Esp:Connection(ItemParentor.ChildAdded, function()
+                task.wait(.1)
+                if ItemParentor.Parent == nil then return end
+                ItemParentor.Parent = Items.Holder
+            end)
+            Esp:Connection(ItemParentor.ChildRemoved, function()
+                task.wait(.1)
+                if #ItemParentor:GetChildren() == 0 then
+                    if ItemParentor.Parent == nil then return end
+                    ItemParentor.Parent = Esp.Cache
                 end
+            end)
+        end
 
-                -- Box Gradients
-                if MiscOptions["Box Gradient 1"] and MiscOptions["Box Gradient 2"] then
-                    local GradientColor = rgbseq{
-                        rgbkey(0, MiscOptions["Box Gradient 2"].Color), 
-                        rgbkey(1, MiscOptions["Box Gradient 1"].Color)
-                    }
-
-                    local SpinOffset = (tick() * MiscOptions['Box Gradient Spin'] * 10) % 360
-
-                    local RotationValue = (180 - (MiscOptions["Box Gradient Rotation"] or 0)) + SpinOffset
-                    
-                    Items.BoxGradient.Color = GradientColor
-                    Items.BoxGradient.Rotation = RotationValue
+        for _, HealthHolder in {"Right", "Left", "Top", "Bottom"} do
+            local Parent = Items["HealthbarTexts" .. HealthHolder]
+            Esp:Connection(Parent.ChildAdded, function()
+                task.wait(.1)
+                if Parent.Parent == nil then return end
+                Parent.Parent = Items[HealthHolder]
+            end)
+            Esp:Connection(Parent.ChildRemoved, function()
+                task.wait(.1)
+                if #Parent:GetChildren() == 0 then
+                    if Parent.Parent == nil then return end
+                    Parent.Parent = Esp.Cache
                 end
+            end)
+        end
 
-                -- Healthbar
-                local HealthPos = MiscOptions["Healthbar_Position"] or "Left"
-                Items.Healthbar.Parent = MiscOptions["Healthbar"] and Items[HealthPos] or Esp.Cache
-                Items.Healthbar.Name = HealthPos
-
-                if MiscOptions["Healthbar"] then
-                    Items.HealthbarGradient.Rotation = (HealthPos == "Bottom" or HealthPos == "Top") and -180 or 90
-                    Items.HealthbarGradient.Color = rgbseq{
-                        rgbkey(0, MiscOptions["Healthbar_High"].Color),
-                        rgbkey(0.5, MiscOptions["Healthbar_Medium"].Color),
-                        rgbkey(1, MiscOptions["Healthbar_Low"].Color)
-                    }
-
-                    Items.Healthbar.Size = UDim2.fromOffset(MiscOptions["Healthbar_Thickness"] + 2, MiscOptions["Healthbar_Thickness"] + 2)
-                    
-                    -- Health Text
-                    local HealthTextParent = Items["HealthbarTexts" .. HealthPos]
-                    Items.HealthbarText.Parent = MiscOptions["Healthbar_Number"] and HealthTextParent or Esp.Cache
-                    
-                    if MiscOptions["Healthbar_Number"] then
-                        Items.HealthbarText.Text = math.floor(Humanoid.Health + 0.5)
-                        Items.HealthbarText.Visible = Humanoid.Health < (Humanoid.MaxHealth - 0.1)
-                        Items.HealthbarText.TextSize = MiscOptions["Healthbar_Text_Size"]
-                        Items.HealthbarText.FontFace = Fonts[MiscOptions["Healthbar_Font"]]
-                    end
-                    
-                    Data.HealthChanged(Humanoid.Health)
+        for _, TextHolder in {"Right", "Left", "Bottom", "Top"} do
+            local Parent = Items[TextHolder .. "Texts"]
+            Esp:Connection(Parent.ChildAdded, function()
+                task.wait(.1)
+                if Parent.Parent == nil then return end
+                Parent.Parent = Items[TextHolder]
+            end)
+            Esp:Connection(Parent.ChildRemoved, function()
+                task.wait(.1)
+                if #Parent:GetChildren() == 0 then
+                    if Parent.Parent == nil then return end
+                    Parent.Parent = Esp.Cache
                 end
+            end)
+        end
 
-                -- Text Elements (Name, Distance, Weapon, Flags)
-                local DistSuffix = MiscOptions["Distance_Text_Suffix"] or MiscOptions["Distance_SUFFIX"] or Flags["ESP/Distance/Enabled_SUFFIX"] or Flags["Distance_SUFFIX"] or "s"
-                local IsMeters = (DistSuffix == "m" or DistSuffix == "meters")
-                local ConvertedDistance = IsMeters and math.floor(Distance * 0.28) or math.floor(Distance)
-                local DistanceSpacing = (DistSuffix == "studs" or DistSuffix == "meters") and " " or ""
-                local DistanceString = tostring(ConvertedDistance) .. DistanceSpacing .. tostring(DistSuffix)
+        Esp.Players[Player.Name] = Data
+    end
 
-                local TextTypes = {
-                    {Key = "Name", Object = Items.Text, Content = Player.Name},
-                    {Key = "Distance", Object = Items.Distance, Content = DistanceString},
-                    {Key = "Weapon", Object = Items.Weapon, Content = ""},
-                    {Key = 'Flags', Object = Items.Flags},
+    function Esp.Update()
+        if not Esp or not MiscOptions["Enabled"] then
+            for _, Data in Esp.Players do
+                if Data.Items and Data.Items.Holder then
+                    Data.Items.Holder.Visible = false
+                end
+            end
+            return
+        end
+
+        local MaxDistance = MiscOptions["Render Distance"] or 10000
+
+        for _, Data in Esp.Players do
+            local Player    = Data.Player
+            local Items     = Data.Items
+            local Character = Player and Player.Character
+            local Root      = Character and Character:FindFirstChild("HumanoidRootPart")
+            local Humanoid  = Character and Character:FindFirstChildOfClass("Humanoid")
+
+            if not Character or not Root or not Items or not Items.Holder then
+                if Items and Items.Holder then Items.Holder.Visible = false end
+                continue
+            end
+
+            local Distance  = (Camera.CFrame.Position - Root.Position).Magnitude
+            local _, OnScreen = Esp:WorldToScreen(Root.Position)
+
+            if Distance > MaxDistance or not OnScreen then
+                Items.Holder.Visible = false
+                continue
+            end
+
+            local Parts = {}
+            for _, Part in Character:GetChildren() do
+                if Part:IsA("BasePart") and Part.Name ~= "HumanoidRootPart" then
+                    table.insert(Parts, Part)
+                end
+            end
+
+            local Corners = Esp:BoundingBox(Esp:GetBoundingBox(Parts))
+            local Holder  = Items.Holder
+
+            Holder.Visible  = true
+            Holder.Position = UDim2.fromOffset(Corners.TopLeft.X, Corners.TopLeft.Y)
+            Holder.Size     = UDim2.fromOffset(
+                Corners.BottomRight.X - Corners.TopLeft.X,
+                Corners.BottomRight.Y - Corners.TopLeft.Y
+            )
+
+            Items.Box.Parent = MiscOptions["Boxes"] and Holder or Esp.Cache
+
+            Holder.BackgroundTransparency = MiscOptions["Box Fill"] and 0 or 1
+            if MiscOptions["Box Fill"] then
+                Items.HolderGradient.Rotation     = MiscOptions["Box Fill Rotation"]
+                Items.HolderGradient.Transparency = numseq{
+                    numkey(0, MiscOptions["Box Fill 1"].Transparency),
+                    numkey(1, MiscOptions["Box Fill 2"].Transparency),
+                }
+                Items.HolderGradient.Color = rgbseq{
+                    rgbkey(0, MiscOptions["Box Fill 1"].Color),
+                    rgbkey(1, MiscOptions["Box Fill 2"].Color),
+                }
+            end
+
+            if MiscOptions["Box Gradient 1"] and MiscOptions["Box Gradient 2"] then
+                local GradientColor = rgbseq{
+                    rgbkey(0, MiscOptions["Box Gradient 2"].Color),
+                    rgbkey(1, MiscOptions["Box Gradient 1"].Color),
+                }
+                local SpinOffset   = (tick() * MiscOptions["Box Gradient Spin"] * 10) % 360
+                local RotationValue = (180 - (MiscOptions["Box Gradient Rotation"] or 0)) + SpinOffset
+
+                Items.BoxGradient.Color    = GradientColor
+                Items.BoxGradient.Rotation = RotationValue
+            end
+
+            local HealthPos = MiscOptions["Healthbar_Position"] or "Left"
+            Items.Healthbar.Parent = MiscOptions["Healthbar"] and Items[HealthPos] or Esp.Cache
+            Items.Healthbar.Name   = HealthPos
+
+            if MiscOptions["Healthbar"] then
+                Items.HealthbarGradient.Rotation = (HealthPos == "Bottom" or HealthPos == "Top") and -180 or 90
+                Items.HealthbarGradient.Color = rgbseq{
+                    rgbkey(0,   MiscOptions["Healthbar_High"].Color),
+                    rgbkey(0.5, MiscOptions["Healthbar_Medium"].Color),
+                    rgbkey(1,   MiscOptions["Healthbar_Low"].Color),
                 }
 
-                for _, Info in TextTypes do
-                    local TextObj = Info.Object
-                    if TextObj then
-                        local Prefix = Info.Key
-                        local Pos = MiscOptions[Prefix .. "_Text_Position"] or "Top"
+                Items.Healthbar.Size = UDim2.fromOffset(MiscOptions["Healthbar_Thickness"] + 2, MiscOptions["Healthbar_Thickness"] + 2)
 
-                        TextObj.Parent = MiscOptions[Prefix .. "_Text"] and Items[Pos .. "Texts"] or Esp.Cache
-                        
-                        if MiscOptions[Prefix .. "_Text"] then
-                            TextObj.Text = Info.Content or '' 
-                            TextObj.Name = tostring(Pos)
-                            TextObj.TextColor3 = MiscOptions[Prefix .. "_Text_Color"].Color
-                            TextObj.FontFace = Fonts[MiscOptions[Prefix .. "_Text_Font"]]
-                            TextObj.TextSize = MiscOptions[Prefix .. "_Text_Size"]
+                local HealthTextParent = Items["HealthbarTexts" .. HealthPos]
+                Items.HealthbarText.Parent = MiscOptions["Healthbar_Number"] and HealthTextParent or Esp.Cache
 
-                            if Prefix == 'Flags' and Distance < MiscOptions["Flags_Max_Distance"] then
-                                local ActiveStates = {}
-                                if GameName:find('Apocalypse') then
-                                    ActiveStates = Esp:CheckState(Player, MiscOptions["Flags_Flags"])
-                                end
-
-                                if ActiveStates then
-                                    TextObj.Text = table.concat(ActiveStates, "\n")
-                                end
-                            end
-
-                            if Prefix == 'Weapon' and Distance < MiscOptions["Flags_Max_Distance"] then
-                                if GameName:find('Apocalypse') then
-                                    local Weapon = Esp:GetWeapon(Player) or ''
-
-                                    TextObj.Text = Weapon
-                                end
-                            end
-
-                            if Pos == "Top" or Pos == "Bottom" then 
-                                TextObj.AutomaticSize = Enum.AutomaticSize.Y 
-                                TextObj.TextXAlignment = Enum.TextXAlignment.Center
-                            else 
-                                TextObj.AutomaticSize = Enum.AutomaticSize.XY 
-                                TextObj.TextXAlignment = Enum.TextXAlignment[Pos == "Right" and "Left" or "Right"]
-                            end
-                        end
-                    end
+                if MiscOptions["Healthbar_Number"] then
+                    Items.HealthbarText.Text      = math.floor(Humanoid.Health + 0.5)
+                    Items.HealthbarText.Visible   = Humanoid.Health < (Humanoid.MaxHealth - 0.1)
+                    Items.HealthbarText.TextSize  = MiscOptions["Healthbar_Text_Size"]
+                    Items.HealthbarText.FontFace  = Fonts[MiscOptions["Healthbar_Font"]]
                 end
 
-                -- Chams
-                if Data.Handles then
-                    for _, Handle in Data.Handles do
-                        Handle.Visible = MiscOptions["ChamsEnabled"]
-                        if MiscOptions["ChamsEnabled"] then
-                            if Handle.Name == "Fill" then
-                                Handle.Color3 = MiscOptions["Chams Fill"].Color
-                                Handle.Transparency = 1 - MiscOptions["Chams Fill"].Transparency
-                            elseif Handle.Name == "Outline" then
-                                Handle.Color3 = Color3.new(MiscOptions["Chams Outline"].Color.R * 5, MiscOptions["Chams Outline"].Color.G * 5, MiscOptions["Chams Outline"].Color.B * 5)
-                                Handle.Transparency = -1
+                Data.HealthChanged(Humanoid.Health)
+            end
+
+            local DistSuffix       = MiscOptions["Distance_Text_Suffix"] or MiscOptions["Distance_SUFFIX"] or Flags["ESP/Distance/Enabled_SUFFIX"] or Flags["Distance_SUFFIX"] or "s"
+            local IsMeters         = (DistSuffix == "m" or DistSuffix == "meters")
+            local ConvertedDistance = IsMeters and math.floor(Distance * 0.28) or math.floor(Distance)
+            local DistanceSpacing  = (DistSuffix == "studs" or DistSuffix == "meters") and " " or ""
+            local DistanceString   = tostring(ConvertedDistance) .. DistanceSpacing .. tostring(DistSuffix)
+
+            local TextTypes = {
+                { Key = "Name",     Object = Items.Text,     Content = Player.Name    },
+                { Key = "Distance", Object = Items.Distance, Content = DistanceString },
+                { Key = "Weapon",   Object = Items.Weapon,   Content = ""             },
+                { Key = "Flags",    Object = Items.Flags                               },
+            }
+
+            for _, Info in TextTypes do
+                local TextObj = Info.Object
+                if TextObj then
+                    local Prefix = Info.Key
+                    local Pos    = MiscOptions[Prefix .. "_Text_Position"] or "Top"
+
+                    TextObj.Parent = MiscOptions[Prefix .. "_Text"] and Items[Pos .. "Texts"] or Esp.Cache
+
+                    if MiscOptions[Prefix .. "_Text"] then
+                        TextObj.Text       = Info.Content or ""
+                        TextObj.Name       = tostring(Pos)
+                        TextObj.TextColor3 = MiscOptions[Prefix .. "_Text_Color"].Color
+                        TextObj.FontFace   = Fonts[MiscOptions[Prefix .. "_Text_Font"]]
+                        TextObj.TextSize   = MiscOptions[Prefix .. "_Text_Size"]
+
+                        if Prefix == "Flags" and Distance < MiscOptions["Flags_Max_Distance"] then
+                            local ActiveStates = {}
+                            if GameName:find("Apocalypse") then
+                                ActiveStates = Esp:CheckState(Player, MiscOptions["Flags_Flags"])
                             end
+                            if ActiveStates then
+                                TextObj.Text = table.concat(ActiveStates, "\n")
+                            end
+                        end
+
+                        if Prefix == "Weapon" and Distance < MiscOptions["Flags_Max_Distance"] then
+                            if GameName:find("Apocalypse") then
+                                TextObj.Text = Esp:GetWeapon(Player) or ""
+                            end
+                        end
+
+                        if Pos == "Top" or Pos == "Bottom" then
+                            TextObj.AutomaticSize   = Enum.AutomaticSize.Y
+                            TextObj.TextXAlignment  = Enum.TextXAlignment.Center
+                        else
+                            TextObj.AutomaticSize   = Enum.AutomaticSize.XY
+                            TextObj.TextXAlignment  = Enum.TextXAlignment[Pos == "Right" and "Left" or "Right"]
                         end
                     end
                 end
             end
-        end
-        
-        function Esp.RefreshElements(key, value) -- IMPORTANT! -- WASNT VERY IMPROTANT AFTER ALL            
-            
-        end
 
-
-        function Esp.Unload() 
-            for _,player in Players:GetPlayers() do 
-                Esp.RemovePlayer(player)
-            end
-
-            for _,connection in Esp.Connections do 
-                connection:Disconnect() 
-                connection = nil
-            end 
-            
-            if Esp.Loop then 
-                Esp.Loop:Disconnect()
-                Esp.Loop = nil
-            end 
-
-            Esp.Cache:Destroy() 
-            Esp.ScreenGui:Destroy()
-
-            getgenv().Esp = nil
-            MiscOptions = nil 
-            Options = nil
-            Esp = nil 
-        end 
-        
-        function Esp.RemovePlayer(player)
-            if not Esp.Players then
-                return 
-            end 
-
-            local Path = Esp.Players[player.Name]
-
-            if not Path then 
-                return 
-            end 
-
-            if Path then
-                Path.Destroy()
+            if Data.Handles then
+                for _, Handle in Data.Handles do
+                    Handle.Visible = MiscOptions["ChamsEnabled"]
+                    if MiscOptions["ChamsEnabled"] then
+                        if Handle.Name == "Fill" then
+                            Handle.Color3       = MiscOptions["Chams Fill"].Color
+                            Handle.Transparency = 1 - MiscOptions["Chams Fill"].Transparency
+                        elseif Handle.Name == "Outline" then
+                            Handle.Color3       = Color3.new(MiscOptions["Chams Outline"].Color.R * 5, MiscOptions["Chams Outline"].Color.G * 5, MiscOptions["Chams Outline"].Color.B * 5)
+                            Handle.Transparency = -1
+                        end
+                    end
+                end
             end
         end
     end
 
-    Esp.Loop = Esp:Connection(RunService.RenderStepped, function()
-        Esp:Update()
-    end)
--- 
+    function Esp.RefreshElements(Key, Value)
+    end
+
+    function Esp.Unload()
+        for _, Player in Players:GetPlayers() do
+            Esp.RemovePlayer(Player)
+        end
+
+        for _, Connection in Esp.Connections do
+            Connection:Disconnect()
+            Connection = nil
+        end
+
+        if Esp.Loop then
+            Esp.Loop:Disconnect()
+            Esp.Loop = nil
+        end
+
+        Esp.Cache:Destroy()
+        Esp.ScreenGui:Destroy()
+
+        getgenv().Esp = nil
+        MiscOptions   = nil
+        Options       = nil
+        Esp           = nil
+    end
+
+    function Esp.RemovePlayer(Player)
+        if not Esp.Players then return end
+
+        local Path = Esp.Players[Player.Name]
+        if not Path then return end
+
+        Path.Destroy()
+    end
+end
 
 getgenv().Library = Library
 getgenv().Esp = Esp
