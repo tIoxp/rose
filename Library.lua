@@ -2106,6 +2106,36 @@ end
                 Library:Tween(Items.HealthbarFill, {Size = dim2(percent, 0, 1, 0)}, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out))
             end
 
+            function Cfg.UpdateVisibility(menuOverride)
+                if not Cfg.Visible then
+                    Items.Holder.Visible = false
+                    return
+                end
+                local menuOpen = false
+                if menuOverride ~= nil then
+                    menuOpen = menuOverride
+                elseif Library.Items and Library.Items.Enabled then
+                    menuOpen = true
+                end
+                
+                local targetExists = false
+                if Cfg.Target then
+                    if typeof(Cfg.Target) == "Instance" then
+                        if Cfg.Target.Parent ~= nil then
+                            targetExists = true
+                        end
+                    else
+                        targetExists = true
+                    end
+                end
+                
+                if menuOpen or targetExists then
+                    Items.Holder.Visible = true
+                else
+                    Items.Holder.Visible = false
+                end
+            end
+
             -- Set Target Function
             local HealthConnection = nil
             function Cfg.SetTarget(selfOrTarget, targetOrHealth, maybeMaxHealth, maybeDistance)
@@ -2125,6 +2155,7 @@ end
                     Items.Distance.Text = "Dist: --"
                     Items.AvatarImage.Image = "rbxasset://textures/ui/GuiImagePlaceholder.png"
                     UpdateHealth(100, 100)
+                    Cfg.UpdateVisibility()
                     return
                 end
 
@@ -2218,6 +2249,7 @@ end
                         UpdateHealth(health, maxHealth or 100)
                     end
                 end
+                Cfg.UpdateVisibility()
             end
 
             function Cfg.Update(target, health, maxHealth, distance)
@@ -2230,7 +2262,7 @@ end
 
             function Cfg.SetVisible(bool)
                 Cfg.Visible = bool
-                Items.Holder.Visible = bool
+                Cfg.UpdateVisibility()
             end
 
             function Cfg.Toggle(bool)
@@ -2243,8 +2275,23 @@ end
 
             -- Live distance auto-updater
             Library:Connection(RunService.Heartbeat, function()
-                if not Cfg.Visible or not Items.Holder.Visible then return end
-                if Cfg.Target and typeof(Cfg.Target) == "Instance" then
+                if not Cfg.Visible then return end
+                
+                local targetExists = false
+                if Cfg.Target then
+                    if typeof(Cfg.Target) == "Instance" then
+                        if Cfg.Target.Parent ~= nil then
+                            targetExists = true
+                        end
+                    else
+                        targetExists = true
+                    end
+                end
+                
+                Cfg.UpdateVisibility()
+                
+                if not Items.Holder.Visible then return end
+                if targetExists and typeof(Cfg.Target) == "Instance" then
                     local char = Cfg.Target:IsA("Player") and Cfg.Target.Character or (Cfg.Target:IsA("Model") and Cfg.Target or nil)
                     if char then
                         local root = char:FindFirstChild("HumanoidRootPart") or char:FindFirstChild("Head")
@@ -2673,6 +2720,10 @@ end
                 Library:Tween(Library.Blur, {Size = bool and (Flags["BlurSize"] or 15) or 0})
 
                 Cfg.Tween(bool)
+
+                if Library.TargetIndicator and Library.TargetIndicator.UpdateVisibility then
+                    Library.TargetIndicator.UpdateVisibility(bool)
+                end
             end 
 
             function Cfg.Tween(bool) 
@@ -10213,4 +10264,4 @@ end
 getgenv().Library = Library
 getgenv().Esp = Esp
 
-return Library, Esp, MiscOptions, Options
+return Library, Esp, MiscOptions, Options 
