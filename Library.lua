@@ -2141,10 +2141,23 @@ end
             -- Set Target Function
             local HealthConnection = nil
             function Cfg.SetTarget(selfOrTarget, targetOrHealth, maybeMaxHealth, maybeDistance)
-                local target = (selfOrTarget == Cfg or (type(selfOrTarget) == "table" and (selfOrTarget.Items or selfOrTarget == Library or selfOrTarget == Library.Indicator))) and targetOrHealth or selfOrTarget
-                local health = (selfOrTarget == Cfg or (type(selfOrTarget) == "table" and (selfOrTarget.Items or selfOrTarget == Library or selfOrTarget == Library.Indicator))) and maybeMaxHealth or targetOrHealth
-                local maxHealth = (selfOrTarget == Cfg or (type(selfOrTarget) == "table" and (selfOrTarget.Items or selfOrTarget == Library or selfOrTarget == Library.Indicator))) and maybeDistance or maybeMaxHealth
-                local distance = (selfOrTarget == Cfg or (type(selfOrTarget) == "table" and (selfOrTarget.Items or selfOrTarget == Library or selfOrTarget == Library.Indicator))) and nil or maybeDistance
+                local target = selfOrTarget
+                local health = targetOrHealth
+                local maxHealth = maybeMaxHealth
+                local distance = maybeDistance
+
+                -- Handle colon notation
+                if selfOrTarget == Cfg or (type(selfOrTarget) == "table" and (selfOrTarget.Items or selfOrTarget == Library or selfOrTarget == Library.Indicator or selfOrTarget == Library.SilentIndicator or selfOrTarget == Library.Indicators)) then
+                    target = targetOrHealth
+                    health = maybeMaxHealth
+                    maxHealth = maybeDistance
+                    distance = nil
+                end
+
+                -- Prevent targeting the UI library elements/tables themselves
+                if target == Cfg or (type(target) == "table" and (target.Items or target == Library or target == Library.Indicator or target == Library.SilentIndicator or target == Library.Indicators or target.SetTarget ~= nil)) then
+                    target = nil
+                end
 
                 if HealthConnection then
                     HealthConnection:Disconnect()
@@ -2165,7 +2178,7 @@ end
 
                 -- If Player instance
                 if typeof(target) == "Instance" and target:IsA("Player") then
-                    Items.Name.Text = string.format("Name: %s", target.DisplayName or target.Name)
+                    Items.Name.Text = string.format("Name: %s", target.Name)
 
                     task.spawn(function()
                         pcall(function()
@@ -6049,6 +6062,13 @@ end
                 Section:Toggle({Name = "Toggle Keybind List", Callback = function(bool)
                     Library.KeybindList.Items.Holder.Visible = bool 
                     Library.KeybindList.Items.List.Visible = bool 
+                end})
+                Section:Toggle({Name = "Toggle Target Indicator", Default = true, Callback = function(bool)
+                    if Window and Window.SetIndicatorVisible then
+                        Window.SetIndicatorVisible(bool)
+                    elseif Library.TargetIndicator then
+                        Library.TargetIndicator.SetVisible(bool)
+                    end
                 end})
                 Section:Dropdown({Name = "Font", Options = FontIndexes, Callback = function(option)
                     for _,text in themes.utility.text_color.TextColor3 do 
