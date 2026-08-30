@@ -1245,7 +1245,7 @@ end
         function Library:StatusList(properties)
             local Cfg = {
                 Name = properties.Name or "List"; 
-
+                Position = properties.Position;
                 Items = {}
             } 
 
@@ -1367,8 +1367,21 @@ end
             end)
 
             task.delay(0.01, function()
-                Items.List.Position = dim2(0, 50, 0, 700);
+                Items.List.Position = Cfg.Position or dim2(0, 50, 0, 700);
             end)
+
+            function Cfg.SetVisible(bool)
+                Items.List.Visible = bool
+                Items.Holder.Visible = bool
+            end
+
+            function Cfg.Toggle(bool)
+                if bool ~= nil then
+                    Cfg.SetVisible(bool)
+                else
+                    Cfg.SetVisible(not Items.List.Visible)
+                end
+            end
             
             return setmetatable(Cfg, Library)
         end 
@@ -1478,6 +1491,35 @@ end
         
             return setmetatable(Cfg, Library)
         end 
+
+        function Library:Indicator(properties)
+            if not Library.TargetIndicator then
+                Library.TargetIndicator = Library:TargetIndicator({Name = "Indicator"})
+                Library.SilentIndicator = Library.TargetIndicator
+                Library.Indicator = Library.TargetIndicator
+            end
+            if properties then
+                if type(properties) == "table" and (properties.Target or properties.Name or properties.Text) then
+                    Library.TargetIndicator.SetTarget(properties)
+                end
+            end
+            return Library.TargetIndicator
+        end
+
+        function Library:SetSilentIndicator(visibleOrTarget, text)
+            if typeof(visibleOrTarget) == "Instance" or (type(visibleOrTarget) == "table" and (visibleOrTarget.Name or visibleOrTarget.UserId)) then
+                if Library.TargetIndicator then
+                    Library.TargetIndicator.SetTarget(visibleOrTarget)
+                end
+            elseif type(visibleOrTarget) == "boolean" then
+                if Library.TargetIndicator then
+                    Library.TargetIndicator.SetVisible(visibleOrTarget)
+                end
+                if text and Library.TargetIndicator and Library.TargetIndicator.SetText then
+                    Library.TargetIndicator.SetText(text)
+                end
+            end
+        end
     -- 
 
     -- Library element functions
@@ -1813,6 +1855,455 @@ end
             return Crosshair
         end 
 
+        function Library:TargetIndicator(properties)
+            properties = properties or {}
+            local Cfg = {
+                Name = properties.Name or "Indicator",
+                Position = properties.Position or dim2(0.5, -115, 0.7, 0),
+                Target = nil,
+                Visible = properties.Visible ~= nil and properties.Visible or true,
+                Items = {},
+                CurrentHealth = 100,
+                MaxHealth = 100,
+                Tweening = false,
+            }
+
+            local Items = Cfg.Items; do
+                -- Main Frame (Outline)
+                Items.Holder = Library:Create("Frame", {
+                    Parent = Library.Elements,
+                    Name = "TargetIndicator",
+                    Visible = Cfg.Visible,
+                    Position = Cfg.Position,
+                    Size = dim2(0, 220, 0, 66),
+                    BorderColor3 = rgb(0, 0, 0),
+                    BorderSizePixel = 0,
+                    BackgroundColor3 = themes.preset.outline,
+                }); Library:Themify(Items.Holder, "outline", "BackgroundColor3"); Library:Draggify(Items.Holder)
+
+                -- Inline Frame
+                Items.Inline = Library:Create("Frame", {
+                    Parent = Items.Holder,
+                    Name = "Inline",
+                    Position = dim2(0, 1, 0, 1),
+                    Size = dim2(1, -2, 1, -2),
+                    BorderColor3 = rgb(0, 0, 0),
+                    BorderSizePixel = 0,
+                    BackgroundColor3 = themes.preset.inline,
+                }); Library:Themify(Items.Inline, "inline", "BackgroundColor3")
+
+                -- Background
+                Items.Background = Library:Create("Frame", {
+                    Parent = Items.Inline,
+                    Name = "Background",
+                    Position = dim2(0, 1, 0, 1),
+                    Size = dim2(1, -2, 1, -2),
+                    BorderColor3 = rgb(0, 0, 0),
+                    BorderSizePixel = 0,
+                    BackgroundColor3 = themes.preset.misc_1,
+                }); Library:Themify(Items.Background, "misc_1", "BackgroundColor3")
+
+                -- Accent Bar
+                Items.Accent = Library:Create("Frame", {
+                    Parent = Items.Background,
+                    Name = "Accent",
+                    Position = dim2(0, 0, 0, 0),
+                    Size = dim2(1, 0, 0, 1),
+                    BorderColor3 = rgb(0, 0, 0),
+                    BorderSizePixel = 0,
+                    ZIndex = 3,
+                    BackgroundColor3 = themes.preset.accent,
+                }); Library:Themify(Items.Accent, "accent", "BackgroundColor3")
+
+                -- Title
+                Items.Title = Library:Create("TextLabel", {
+                    FontFace = Fonts.ProggyTiny,
+                    TextColor3 = themes.preset.text_color,
+                    TextStrokeColor3 = rgb(255, 255, 255),
+                    Text = properties.Title or "Indicator",
+                    Parent = Items.Background,
+                    Name = "Title",
+                    TextXAlignment = Enum.TextXAlignment.Left,
+                    AutomaticSize = Enum.AutomaticSize.XY,
+                    BorderSizePixel = 0,
+                    BackgroundTransparency = 1,
+                    Position = dim2(0, 6, 0, 2),
+                    ZIndex = 2,
+                    TextSize = 9,
+                    BackgroundColor3 = rgb(255, 255, 255),
+                }); Library:Themify(Items.Title, "text_color", "TextColor3")
+
+                Library:Create("UIStroke", {
+                    Parent = Items.Title,
+                    LineJoinMode = Enum.LineJoinMode.Miter,
+                })
+
+                -- Avatar Image Box Outline
+                Items.ImageOutline = Library:Create("Frame", {
+                    Parent = Items.Background,
+                    Name = "ImageOutline",
+                    Position = dim2(0, 6, 0, 15),
+                    Size = dim2(0, 44, 0, 44),
+                    BorderColor3 = rgb(0, 0, 0),
+                    BorderSizePixel = 0,
+                    BackgroundColor3 = themes.preset.outline,
+                }); Library:Themify(Items.ImageOutline, "outline", "BackgroundColor3")
+
+                -- Avatar Image Box Inline
+                Items.ImageInline = Library:Create("Frame", {
+                    Parent = Items.ImageOutline,
+                    Name = "ImageInline",
+                    Position = dim2(0, 1, 0, 1),
+                    Size = dim2(1, -2, 1, -2),
+                    BorderColor3 = rgb(0, 0, 0),
+                    BorderSizePixel = 0,
+                    BackgroundColor3 = themes.preset.inline,
+                }); Library:Themify(Items.ImageInline, "inline", "BackgroundColor3")
+
+                -- Avatar Image
+                Items.AvatarImage = Library:Create("ImageLabel", {
+                    Parent = Items.ImageInline,
+                    Name = "Avatar",
+                    Position = dim2(0, 1, 0, 1),
+                    Size = dim2(1, -2, 1, -2),
+                    BorderColor3 = rgb(0, 0, 0),
+                    BorderSizePixel = 0,
+                    BackgroundTransparency = 0,
+                    BackgroundColor3 = themes.preset.misc_1,
+                    Image = "rbxasset://textures/ui/GuiImagePlaceholder.png",
+                })
+
+                -- Content Container
+                Items.Content = Library:Create("Frame", {
+                    Parent = Items.Background,
+                    Name = "Content",
+                    Position = dim2(0, 56, 0, 15),
+                    Size = dim2(1, -62, 0, 44),
+                    BackgroundTransparency = 1,
+                    BorderSizePixel = 0,
+                })
+
+                -- Target Name Label
+                Items.Name = Library:Create("TextLabel", {
+                    FontFace = Fonts.ProggyTiny,
+                    TextColor3 = themes.preset.text_color,
+                    TextStrokeColor3 = rgb(255, 255, 255),
+                    Text = "Name: None",
+                    Parent = Items.Content,
+                    Name = "NameLabel",
+                    TextXAlignment = Enum.TextXAlignment.Left,
+                    TextTruncate = Enum.TextTruncate.AtEnd,
+                    Size = dim2(1, 0, 0, 10),
+                    BorderSizePixel = 0,
+                    BackgroundTransparency = 1,
+                    Position = dim2(0, 0, 0, 0),
+                    ZIndex = 2,
+                    TextSize = 9,
+                }); Library:Themify(Items.Name, "text_color", "TextColor3")
+
+                Library:Create("UIStroke", {
+                    Parent = Items.Name,
+                    LineJoinMode = Enum.LineJoinMode.Miter,
+                })
+
+                -- Target Distance Label
+                Items.Distance = Library:Create("TextLabel", {
+                    FontFace = Fonts.ProggyTiny,
+                    TextColor3 = themes.preset.unselected,
+                    TextStrokeColor3 = rgb(255, 255, 255),
+                    Text = "Dist: --",
+                    Parent = Items.Content,
+                    Name = "DistanceLabel",
+                    TextXAlignment = Enum.TextXAlignment.Left,
+                    Size = dim2(1, 0, 0, 10),
+                    BorderSizePixel = 0,
+                    BackgroundTransparency = 1,
+                    Position = dim2(0, 0, 0, 11),
+                    ZIndex = 2,
+                    TextSize = 9,
+                }); Library:Themify(Items.Distance, "unselected", "TextColor3")
+
+                Library:Create("UIStroke", {
+                    Parent = Items.Distance,
+                    LineJoinMode = Enum.LineJoinMode.Miter,
+                })
+
+                -- Health Text Label
+                Items.HealthText = Library:Create("TextLabel", {
+                    FontFace = Fonts.ProggyTiny,
+                    TextColor3 = rgb(100, 255, 100),
+                    TextStrokeColor3 = rgb(255, 255, 255),
+                    Text = "100 / 100 HP (100%)",
+                    Parent = Items.Content,
+                    Name = "HealthText",
+                    TextXAlignment = Enum.TextXAlignment.Left,
+                    Size = dim2(1, 0, 0, 10),
+                    BorderSizePixel = 0,
+                    BackgroundTransparency = 1,
+                    Position = dim2(0, 0, 0, 22),
+                    ZIndex = 2,
+                    TextSize = 9,
+                })
+
+                Library:Create("UIStroke", {
+                    Parent = Items.HealthText,
+                    LineJoinMode = Enum.LineJoinMode.Miter,
+                })
+
+                -- Health Bar Outline
+                Items.HealthbarOutline = Library:Create("Frame", {
+                    Parent = Items.Content,
+                    Name = "HealthbarOutline",
+                    Position = dim2(0, 0, 0, 35),
+                    Size = dim2(1, 0, 0, 6),
+                    BorderColor3 = rgb(0, 0, 0),
+                    BorderSizePixel = 0,
+                    BackgroundColor3 = themes.preset.outline,
+                }); Library:Themify(Items.HealthbarOutline, "outline", "BackgroundColor3")
+
+                -- Health Bar Inline
+                Items.HealthbarInline = Library:Create("Frame", {
+                    Parent = Items.HealthbarOutline,
+                    Name = "HealthbarInline",
+                    Position = dim2(0, 1, 0, 1),
+                    Size = dim2(1, -2, 1, -2),
+                    BorderColor3 = rgb(0, 0, 0),
+                    BorderSizePixel = 0,
+                    BackgroundColor3 = themes.preset.background,
+                }); Library:Themify(Items.HealthbarInline, "background", "BackgroundColor3")
+
+                -- Health Bar Fill
+                Items.HealthbarFill = Library:Create("Frame", {
+                    Parent = Items.HealthbarInline,
+                    Name = "HealthbarFill",
+                    Position = dim2(0, 0, 0, 0),
+                    Size = dim2(1, 0, 1, 0),
+                    BorderColor3 = rgb(0, 0, 0),
+                    BorderSizePixel = 0,
+                    BackgroundColor3 = rgb(100, 255, 100),
+                })
+
+                Items.HealthbarGradient = Library:Create("UIGradient", {
+                    Enabled = true,
+                    Parent = Items.HealthbarFill,
+                    Color = rgbseq{rgbkey(0, rgb(255, 50, 50)), rgbkey(0.5, rgb(255, 180, 50)), rgbkey(1, rgb(100, 255, 100))},
+                })
+            end
+
+            -- Update Health Display Function
+            local function UpdateHealth(health, maxHealth)
+                health = math.max(0, health or 100)
+                maxHealth = math.max(1, maxHealth or 100)
+                Cfg.CurrentHealth = health
+                Cfg.MaxHealth = maxHealth
+                local percent = math.clamp(health / maxHealth, 0, 1)
+
+                Items.HealthText.Text = string.format("%d / %d HP (%d%%)", math.floor(health + 0.5), math.floor(maxHealth + 0.5), math.floor(percent * 100))
+
+                local healthColor = (percent > 0.5) and rgb(255, 180, 50):Lerp(rgb(100, 255, 100), (percent - 0.5) * 2) or rgb(255, 50, 50):Lerp(rgb(255, 180, 50), percent * 2)
+                Items.HealthText.TextColor3 = healthColor
+
+                Library:Tween(Items.HealthbarFill, {Size = dim2(percent, 0, 1, 0)}, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out))
+            end
+
+            -- Set Target Function
+            local HealthConnection = nil
+            function Cfg.SetTarget(selfOrTarget, targetOrHealth, maybeMaxHealth, maybeDistance)
+                local target = (selfOrTarget == Cfg or (type(selfOrTarget) == "table" and (selfOrTarget.Items or selfOrTarget == Library or selfOrTarget == Library.Indicator))) and targetOrHealth or selfOrTarget
+                local health = (selfOrTarget == Cfg or (type(selfOrTarget) == "table" and (selfOrTarget.Items or selfOrTarget == Library or selfOrTarget == Library.Indicator))) and maybeMaxHealth or targetOrHealth
+                local maxHealth = (selfOrTarget == Cfg or (type(selfOrTarget) == "table" and (selfOrTarget.Items or selfOrTarget == Library or selfOrTarget == Library.Indicator))) and maybeDistance or maybeMaxHealth
+                local distance = (selfOrTarget == Cfg or (type(selfOrTarget) == "table" and (selfOrTarget.Items or selfOrTarget == Library or selfOrTarget == Library.Indicator))) and nil or maybeDistance
+
+                if HealthConnection then
+                    HealthConnection:Disconnect()
+                    HealthConnection = nil
+                end
+
+                if not target then
+                    Cfg.Target = nil
+                    Items.Name.Text = "Name: None"
+                    Items.Distance.Text = "Dist: --"
+                    Items.AvatarImage.Image = "rbxasset://textures/ui/GuiImagePlaceholder.png"
+                    UpdateHealth(100, 100)
+                    return
+                end
+
+                Cfg.Target = target
+
+                -- If Player instance
+                if typeof(target) == "Instance" and target:IsA("Player") then
+                    Items.Name.Text = string.format("Name: %s", target.DisplayName or target.Name)
+
+                    task.spawn(function()
+                        pcall(function()
+                            local thumb = Players:GetUserThumbnailAsync(target.UserId, Enum.ThumbnailType.HeadShot, Enum.ThumbnailSize.Size100x100)
+                            if thumb then
+                                Items.AvatarImage.Image = thumb
+                            else
+                                Items.AvatarImage.Image = string.format("rbxthumb://type=AvatarHeadShot&id=%d&w=150&h=150", target.UserId)
+                            end
+                        end)
+                    end)
+
+                    local char = target.Character
+                    if char then
+                        local hum = char:FindFirstChildOfClass("Humanoid")
+                        local root = char:FindFirstChild("HumanoidRootPart") or char:FindFirstChild("Head")
+
+                        if hum then
+                            UpdateHealth(hum.Health, hum.MaxHealth)
+                            HealthConnection = hum.HealthChanged:Connect(function(h)
+                                UpdateHealth(h, hum.MaxHealth)
+                            end)
+                        else
+                            UpdateHealth(health or 100, maxHealth or 100)
+                        end
+
+                        if root and Camera then
+                            local dist = math.floor((Camera.CFrame.Position - root.Position).Magnitude)
+                            Items.Distance.Text = string.format("Dist: %d studs", dist)
+                        elseif distance then
+                            Items.Distance.Text = string.format("Dist: %s studs", tostring(distance))
+                        end
+                    end
+                -- If Model
+                elseif typeof(target) == "Instance" and target:IsA("Model") then
+                    local player = Players:GetPlayerFromCharacter(target)
+                    if player then
+                        Cfg.SetTarget(player)
+                        return
+                    end
+
+                    Items.Name.Text = string.format("Name: %s", target.Name)
+                    local hum = target:FindFirstChildOfClass("Humanoid")
+                    local root = target:FindFirstChild("HumanoidRootPart") or target:FindFirstChild("Head")
+
+                    if hum then
+                        UpdateHealth(hum.Health, hum.MaxHealth)
+                        HealthConnection = hum.HealthChanged:Connect(function(h)
+                            UpdateHealth(h, hum.MaxHealth)
+                        end)
+                    else
+                        UpdateHealth(health or 100, maxHealth or 100)
+                    end
+
+                    if root and Camera then
+                        local dist = math.floor((Camera.CFrame.Position - root.Position).Magnitude)
+                        Items.Distance.Text = string.format("Dist: %d studs", dist)
+                    elseif distance then
+                        Items.Distance.Text = string.format("Dist: %s studs", tostring(distance))
+                    end
+                -- If table data
+                elseif type(target) == "table" then
+                    if target.Name then
+                        Items.Name.Text = string.format("Name: %s", target.Name)
+                    end
+                    if target.Distance ~= nil then
+                        Items.Distance.Text = string.format("Dist: %s studs", tostring(target.Distance))
+                    end
+                    if target.Health ~= nil then
+                        UpdateHealth(target.Health, target.MaxHealth or 100)
+                    end
+                    if target.Image then
+                        Items.AvatarImage.Image = target.Image
+                    elseif target.UserId then
+                        Items.AvatarImage.Image = string.format("rbxthumb://type=AvatarHeadShot&id=%d&w=150&h=150", target.UserId)
+                    end
+                elseif type(target) == "string" then
+                    Items.Name.Text = string.format("Name: %s", target)
+                    if distance ~= nil then
+                        Items.Distance.Text = string.format("Dist: %s studs", tostring(distance))
+                    end
+                    if health ~= nil then
+                        UpdateHealth(health, maxHealth or 100)
+                    end
+                end
+            end
+
+            function Cfg.Update(target, health, maxHealth, distance)
+                Cfg.SetTarget(target, health, maxHealth, distance)
+            end
+
+            function Cfg.SetText(text)
+                Items.Title.Text = text
+            end
+
+            function Cfg.SetVisible(bool)
+                Cfg.Visible = bool
+                Items.Holder.Visible = bool
+            end
+
+            function Cfg.Toggle(bool)
+                if bool ~= nil then
+                    Cfg.SetVisible(bool)
+                else
+                    Cfg.SetVisible(not Items.Holder.Visible)
+                end
+            end
+
+            -- Live distance auto-updater
+            Library:Connection(RunService.Heartbeat, function()
+                if not Cfg.Visible or not Items.Holder.Visible then return end
+                if Cfg.Target and typeof(Cfg.Target) == "Instance" then
+                    local char = Cfg.Target:IsA("Player") and Cfg.Target.Character or (Cfg.Target:IsA("Model") and Cfg.Target or nil)
+                    if char then
+                        local root = char:FindFirstChild("HumanoidRootPart") or char:FindFirstChild("Head")
+                        if root and Camera then
+                            local dist = math.floor((Camera.CFrame.Position - root.Position).Magnitude)
+                            Items.Distance.Text = string.format("Dist: %d studs", dist)
+                        end
+                    end
+                end
+            end)
+
+            return setmetatable(Cfg, Library)
+        end
+
+        function Library:SetSilentTarget(target, health, maxHealth, distance)
+            if not Library.TargetIndicator then
+                Library.TargetIndicator = Library:TargetIndicator({Name = "Indicator"})
+                Library.SilentIndicator = Library.TargetIndicator
+                Library.Indicator = Library.TargetIndicator
+            end
+            return Library.TargetIndicator.SetTarget(target, health, maxHealth, distance)
+        end
+
+        function Library:SetTarget(target, health, maxHealth, distance)
+            return Library:SetSilentTarget(target, health, maxHealth, distance)
+        end
+
+        Library.Indicator = {
+            SetTarget = function(selfOrTarget, targetOrHealth, maybeMaxHealth, maybeDistance)
+                if not Library.TargetIndicator then
+                    Library.TargetIndicator = Library:TargetIndicator({Name = "Indicator"})
+                    Library.SilentIndicator = Library.TargetIndicator
+                    Library.Indicator = Library.TargetIndicator
+                end
+                return Library.TargetIndicator.SetTarget(selfOrTarget, targetOrHealth, maybeMaxHealth, maybeDistance)
+            end,
+            Update = function(...)
+                return Library.Indicator.SetTarget(...)
+            end,
+            SetVisible = function(selfOrBool, maybeBool)
+                local bool = (selfOrBool == Library.Indicator or (type(selfOrBool) == "table" and (selfOrBool.Items or selfOrBool == Library))) and maybeBool or selfOrBool
+                if not Library.TargetIndicator then
+                    Library.TargetIndicator = Library:TargetIndicator({Name = "Indicator"})
+                    Library.SilentIndicator = Library.TargetIndicator
+                    Library.Indicator = Library.TargetIndicator
+                end
+                Library.TargetIndicator.SetVisible(bool)
+            end,
+            Toggle = function(selfOrBool, maybeBool)
+                local bool = (selfOrBool == Library.Indicator or (type(selfOrBool) == "table" and (selfOrBool.Items or selfOrBool == Library))) and maybeBool or selfOrBool
+                if not Library.TargetIndicator then
+                    Library.TargetIndicator = Library:TargetIndicator({Name = "Indicator"})
+                    Library.SilentIndicator = Library.TargetIndicator
+                    Library.Indicator = Library.TargetIndicator
+                end
+                Library.TargetIndicator.Toggle(bool)
+            end,
+        }
+
         function Library:Window(properties)
             local Cfg = {
                 Name = properties.Name or "nebula";
@@ -1823,7 +2314,11 @@ end
                 Fps = 0;
             }
 
-            Library.KeybindList = Library:StatusList({Name = "Keybinds"})
+            Library.KeybindList = Library:StatusList({Name = "Keybinds", Position = properties.KeybindPosition or dim2(0, 50, 0, 700)})
+            Library.TargetIndicator = Library:TargetIndicator({Name = "Indicator", Position = properties.TargetIndicatorPosition or dim2(0.5, -115, 0.7, 0)})
+            Library.SilentIndicator = Library.TargetIndicator
+            Library.Indicator = Library.TargetIndicator
+            Library.Indicators = Library.TargetIndicator
 
             local Items = Cfg.Items; do
                 -- Items 
@@ -1961,6 +2456,82 @@ end
                         Padding = dim(0, 7);
                         SortOrder = Enum.SortOrder.LayoutOrder
                     });
+
+                    if properties.ShowIndicator ~= false then
+                        Items.IndicatorButton = Library:Create( "TextButton" , {
+                            Active = false;
+                            BorderColor3 = rgb(0, 0, 0);
+                            Parent = Items.WindowButtonHolder;
+                            Name = "IndicatorButton";
+                            Selectable = false;
+                            Size = dim2(0, 0, 0, 16);
+                            BorderSizePixel = 0;
+                            LayoutOrder = properties.IndicatorLayoutOrder or 10;
+                            AutomaticSize = Enum.AutomaticSize.X;
+                            BackgroundColor3 = themes.preset.inline
+                        });	Library:Themify(Items.IndicatorButton, "inline", "BackgroundColor3")
+
+                        Items.IndicatorButtonTitle = Library:Create( "TextLabel" , {
+                            FontFace = Fonts[themes.preset.font];
+                            Parent = Items.IndicatorButton;
+                            TextColor3 = themes.preset.text_color;
+                            TextStrokeColor3 = rgb(255, 255, 255);
+                            Text = properties.IndicatorButtonName or "Indicator";
+                            Name = "hoa";
+                            AutomaticSize = Enum.AutomaticSize.XY;
+                            AnchorPoint = vec2(0, 0.5);
+                            BorderSizePixel = 0;
+                            BackgroundTransparency = 1;
+                            Position = dim2(0, 0, 0.5, 0);
+                            BorderColor3 = rgb(0, 0, 0);
+                            ZIndex = 2;
+                            TextSize = 12;
+                            BackgroundColor3 = rgb(255, 255, 255)
+                        }); Library:Themify(Items.IndicatorButtonTitle, "accent", "TextColor3")
+
+                        Library:Create( "UIStroke" , {
+                            Parent = Items.IndicatorButtonTitle;
+                            LineJoinMode = Enum.LineJoinMode.Miter
+                        });
+
+                        Library:Create( "UIPadding" , {
+                            Parent = Items.IndicatorButtonTitle;
+                            PaddingRight = dim(0, 5);
+                            PaddingLeft = dim(0, 7)
+                        });
+
+                        Items.IndicatorInline = Library:Create( "Frame" , {
+                            Parent = Items.IndicatorButton;
+                            Size = dim2(1, -2, 1, -2);
+                            Name = "\0";
+                            Position = dim2(0, 1, 0, 1);
+                            BorderColor3 = rgb(0, 0, 0);
+                            BorderSizePixel = 0;
+                            AutomaticSize = Enum.AutomaticSize.X;
+                            BackgroundColor3 = themes.preset.outline
+                        });	Library:Themify(Items.IndicatorInline, "outline", "BackgroundColor3")
+
+                        Items.IndicatorBackground = Library:Create( "Frame" , {
+                            Parent = Items.IndicatorInline;
+                            Size = dim2(1, -2, 1, -2);
+                            Name = "\0";
+                            Position = dim2(0, 1, 0, 1);
+                            BorderColor3 = rgb(0, 0, 0);
+                            BorderSizePixel = 0;
+                            AutomaticSize = Enum.AutomaticSize.X;
+                            BackgroundColor3 = themes.preset.misc_1
+                        }); Library:Themify(Items.IndicatorBackground, "misc_1", "BackgroundColor3");
+
+                        Library:Create( "UIPadding" , {
+                            PaddingRight = dim(0, 2);
+                            Parent = Items.IndicatorInline
+                        });
+
+                        Library:Create( "UIPadding" , {
+                            PaddingRight = dim(0, 2);
+                            Parent = Items.IndicatorButton
+                        });
+                    end
                 -- 
 
                 -- Watermark
@@ -2069,6 +2640,29 @@ end
 
             function Cfg.SetWatermarkVisible(bool)
                 Items.Watermark.Visible = bool
+            end
+
+            if Items.IndicatorButton then
+                local IndicatorOpen = true
+                function Cfg.SetIndicatorVisible(bool)
+                    IndicatorOpen = bool
+                    Library:Tween(Items.IndicatorButtonTitle, {TextColor3 = bool and themes.preset.text_color or themes.preset.unselected})
+                    if Library.TargetIndicator then
+                        Library.TargetIndicator.SetVisible(bool)
+                    end
+                end
+
+                Items.IndicatorButton.MouseButton1Click:Connect(function()
+                    Cfg.SetIndicatorVisible(not IndicatorOpen)
+                end)
+
+                Cfg.ToggleIndicator = function(bool)
+                    if bool ~= nil then
+                        Cfg.SetIndicatorVisible(bool)
+                    else
+                        Cfg.SetIndicatorVisible(not IndicatorOpen)
+                    end
+                end
             end
 
             function Cfg.SetVisible(bool)
@@ -5400,6 +5994,13 @@ end
                 Section:Toggle({Name = "Toggle Keybind List", Callback = function(bool)
                     Library.KeybindList.Items.Holder.Visible = bool 
                     Library.KeybindList.Items.List.Visible = bool 
+                end})
+                Section:Toggle({Name = "Toggle Target Indicator", Default = true, Callback = function(bool)
+                    if Window and Window.SetIndicatorVisible then
+                        Window.SetIndicatorVisible(bool)
+                    elseif Library.TargetIndicator then
+                        Library.TargetIndicator.SetVisible(bool)
+                    end
                 end})
                 Section:Dropdown({Name = "Font", Options = FontIndexes, Callback = function(option)
                     for _,text in themes.utility.text_color.TextColor3 do 
