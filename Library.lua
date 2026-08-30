@@ -2114,6 +2114,8 @@ end
                 local menuOpen = false
                 if menuOverride ~= nil then
                     menuOpen = menuOverride
+                elseif Library.MenuOpened ~= nil then
+                    menuOpen = Library.MenuOpened
                 elseif Library.Items and Library.Items.Enabled then
                     menuOpen = true
                 end
@@ -2716,6 +2718,8 @@ end
                 if Library.Tweening then
                     return 
                 end     
+
+                Library.MenuOpened = bool
 
                 Library:Tween(Library.Blur, {Size = bool and (Flags["BlurSize"] or 15) or 0})
 
