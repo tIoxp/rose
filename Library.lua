@@ -5995,13 +5995,6 @@ end
                     Library.KeybindList.Items.Holder.Visible = bool 
                     Library.KeybindList.Items.List.Visible = bool 
                 end})
-                Section:Toggle({Name = "Toggle Target Indicator", Default = true, Callback = function(bool)
-                    if Window and Window.SetIndicatorVisible then
-                        Window.SetIndicatorVisible(bool)
-                    elseif Library.TargetIndicator then
-                        Library.TargetIndicator.SetVisible(bool)
-                    end
-                end})
                 Section:Dropdown({Name = "Font", Options = FontIndexes, Callback = function(option)
                     for _,text in themes.utility.text_color.TextColor3 do 
                         text.FontFace = Fonts[option]
@@ -10220,4 +10213,4 @@ end
 getgenv().Library = Library
 getgenv().Esp = Esp
 
-return Library, Esp, MiscOptions, Options 
+return Library, Esp, MiscOptions, Options
