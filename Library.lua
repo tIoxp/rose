@@ -17,7 +17,10 @@ end
 
 -- Variables 
 
-    local GameName = game:GetService("MarketplaceService"):GetProductInfo(game.PlaceId).Name
+    local GameName = ""
+    pcall(function()
+        GameName = game:GetService("MarketplaceService"):GetProductInfo(game.PlaceId).Name
+    end)
     local InputService, HttpService, GuiService, RunService, Stats, CoreGui, TweenService, SoundService, Workspace, Players, Lighting, ContextActionService = game:GetService("UserInputService"), game:GetService("HttpService"), game:GetService("GuiService"), game:GetService("RunService"), game:GetService("Stats"), game:GetService("CoreGui"), game:GetService("TweenService"), game:GetService("SoundService"), game:GetService("Workspace"), game:GetService("Players"), game:GetService("Lighting"), game:GetService("ContextActionService")
     local Camera, LocalPlayer, gui_offset = Workspace.CurrentCamera, Players.LocalPlayer, GuiService:GetGuiInset().Y
     local Mouse = LocalPlayer:GetMouse()
@@ -171,25 +174,23 @@ end
                 writefile("RoseHook/Utils/Fonts/" .. Asset.Id, Asset.Font)
             end
 
-            if isfile("RoseHook/Utils/Fonts/" .. Name .. ".font") then
-                delfile("RoseHook/Utils/Fonts/" .. Name .. ".font")
+            local fontFile = "RoseHook/Utils/Fonts/" .. Name .. ".font"
+            if not isfile(fontFile) then
+                local Data = {
+                    name = Name,
+                    faces = {
+                        {
+                            name = "Normal",
+                            weight = Weight,
+                            style = Style,
+                            assetId = getcustomasset("RoseHook/Utils/Fonts/" .. Asset.Id),
+                        },
+                    },
+                }
+                writefile(fontFile, HttpService:JSONEncode(Data))
             end
 
-            local Data = {
-                name = Name,
-                faces = {
-                    {
-                        name = "Normal",
-                        weight = Weight,
-                        style = Style,
-                        assetId = getcustomasset("RoseHook/Utils/Fonts/" .. Asset.Id),
-                    },
-                },
-            }
-
-            writefile("RoseHook/Utils/Fonts/" .. Name .. ".font", HttpService:JSONEncode(Data))
-
-            return getcustomasset("RoseHook/Utils/Fonts/" .. Name .. ".font");
+            return getcustomasset(fontFile);
         end
 
         for Name, Suffix in FontNames do 
@@ -198,17 +199,25 @@ end
                 Weight = 900 
             end 
 
-            local FontData
-            if isfile("RoseHook/Utils/Fonts/" .. Suffix) then
-                FontData = readfile("RoseHook/Utils/Fonts/" .. Suffix)
-            else
-                FontData = game:HttpGet("https://github.com/i77lhm/storage/raw/refs/heads/main/fonts/" .. Suffix)
-            end
+            local fontFile = "RoseHook/Utils/Fonts/" .. Name .. ".font"
+            local ttfFile = "RoseHook/Utils/Fonts/" .. Suffix
 
-            local RegisteredFont = RegisterFont(Name, Weight, "Normal", {
-                Id = Suffix,
-                Font = FontData,
-            }) 
+            local RegisteredFont
+            if isfile(fontFile) and isfile(ttfFile) then
+                RegisteredFont = getcustomasset(fontFile)
+            else
+                local FontData
+                if isfile(ttfFile) then
+                    FontData = readfile(ttfFile)
+                else
+                    FontData = game:HttpGet("https://github.com/i77lhm/storage/raw/refs/heads/main/fonts/" .. Suffix)
+                end
+
+                RegisteredFont = RegisterFont(Name, Weight, "Normal", {
+                    Id = Suffix,
+                    Font = FontData,
+                }) 
+            end
             
             Fonts[Name] = Font.new(RegisteredFont, Enum.FontWeight.Regular, Enum.FontStyle.Normal)
         end
@@ -263,7 +272,12 @@ end
 
             local Tween = Library:Tween(obj, { [prop] = TargetTransparency }, TweenInfo.new(speed or Library.TweeningSpeed, Library.EasingStyle, Enum.EasingDirection.InOut, 0, false, 0))
             
-            Library:Connection(Tween.Completed, function()
+            local Conn
+            Conn = Tween.Completed:Connect(function()
+                if Conn then
+                    Conn:Disconnect()
+                    Conn = nil
+                end
                 if not vis then
                     obj[prop] = BaseTransparency
                 end
@@ -432,6 +446,68 @@ end
             end
             
             return EnumTable
+        end
+
+        function Library:ApplyGlow(text, baseColor, glowColor)
+            if not text or text == "" then return "" end
+            baseColor = baseColor or rgb(255, 255, 255)
+            glowColor = glowColor or rgb(255, 255, 255)
+
+            local bLum = (baseColor.R * 0.299 + baseColor.G * 0.587 + baseColor.B * 0.114)
+            local gLum = (glowColor.R * 0.299 + glowColor.G * 0.587 + glowColor.B * 0.114)
+
+            local effectiveBase = baseColor
+            if bLum > 0.6 and math.abs(bLum - gLum) < 0.25 then
+                effectiveBase = Color3.new(baseColor.R * 0.45, baseColor.G * 0.45, baseColor.B * 0.45)
+            end
+
+            local baseR = math.clamp(math.floor(effectiveBase.R * 255), 0, 255)
+            local baseG = math.clamp(math.floor(effectiveBase.G * 255), 0, 255)
+            local baseB = math.clamp(math.floor(effectiveBase.B * 255), 0, 255)
+
+            local totalLetters = 0
+            for i = 1, #text do
+                local b = string.byte(text, i)
+                if b ~= 32 and b ~= 10 and b ~= 13 and b ~= 9 then
+                    totalLetters = totalLetters + 1
+                end
+            end
+
+            if totalLetters == 0 then return text end
+
+            local speed = 7
+            local waveWidth = 1.7
+            local gap = 3
+            local cycleLength = totalLetters + gap
+            local waveCenter = (tick() * speed) % cycleLength + 1
+
+            local out = {}
+            local letterIdx = 0
+
+            for i = 1, #text do
+                local ch = text:sub(i, i)
+                local b = string.byte(ch)
+                if b == 32 or b == 10 or b == 13 or b == 9 then
+                    table.insert(out, ch)
+                else
+                    letterIdx = letterIdx + 1
+                    local dist = math.abs(letterIdx - waveCenter)
+                    local escaped = (ch == "<" and "&lt;") or (ch == ">" and "&gt;") or (ch == "&" and "&amp;") or ch
+
+                    if dist < waveWidth then
+                        local factor = 0.5 * (1 + math.cos(math.pi * (dist / waveWidth)))
+                        local blended = effectiveBase:Lerp(glowColor, factor)
+                        local r = math.clamp(math.floor(blended.R * 255), 0, 255)
+                        local g = math.clamp(math.floor(blended.G * 255), 0, 255)
+                        local b_ = math.clamp(math.floor(blended.B * 255), 0, 255)
+                        table.insert(out, string.format('<font color="rgb(%d,%d,%d)">%s</font>', r, g, b_, escaped))
+                    else
+                        table.insert(out, string.format('<font color="rgb(%d,%d,%d)">%s</font>', baseR, baseG, baseB, escaped))
+                    end
+                end
+            end
+
+            return table.concat(out)
         end
 
         local ConfigHolder;
@@ -650,19 +726,11 @@ end
                     })
 
                     task.spawn(function()
-                        while true do 
-                            task.wait()
+                        while Library and getgenv().Library == Library and Items.Colorpicker and Items.Colorpicker.Parent do 
                             local Flag = Flags[Cfg.Flag .. "_RAINBOW_FLAG"]
 
-                            if not Flag then 
-                                continue 
-                            end 
-
-                            if not Cfg.Set then 
-                                continue 
-                            end
-
-                            if #Flag == 0 then 
+                            if not Flag or #Flag == 0 or not Cfg.Set then 
+                                task.wait(0.2)
                                 continue 
                             end 
 
@@ -671,6 +739,7 @@ end
                             local Alpha = table.find(Flag, "Breathing") and Sine or a
 
                             Cfg.Set(hsv(Hue, s, v), Alpha) 
+                            task.wait()
                         end     
                     end)
 
@@ -1186,12 +1255,11 @@ end
                 Library:Themify(ins, "unselected", "TextColor3")
             end 
 
-            for _, prop in {"BackgroundTransparency", "TextTransparency", "ImageTransparency", "ScrollBarImageTransparency", "Transparency"} do
-                pcall(function()
-                    if ins[prop] ~= nil then
-                        ins:SetAttribute("Base_" .. prop, ins[prop])
-                    end
-                end)
+            local validProps = Library:GetTransparency(ins)
+            if validProps then
+                for _, prop in validProps do
+                    ins:SetAttribute("Base_" .. prop, ins[prop] or 0)
+                end
             end
 
             return ins 
@@ -1680,7 +1748,33 @@ end
         end
         Crosshair.Remove = Crosshair.Destroy
 
+        local LastCrosshairActive = false
         Crosshair.Loop = Library:Connection(RunService.RenderStepped, function(DeltaTime)
+            local FlagEnabled = Flags[Crosshair.Flag]
+            if typeof(FlagEnabled) == "table" and FlagEnabled.Enabled ~= nil then
+                FlagEnabled = FlagEnabled.Enabled
+            end
+
+            local IsActive = Crosshair.Visible ~= false and (Flags[Crosshair.Flag] or Crosshair.ForceVisible)
+
+            if not IsActive then
+                if LastCrosshairActive then
+                    LastCrosshairActive = false
+                    for _, DrawingItem in Crosshair.Drawings do
+                        if typeof(DrawingItem) == "table" then
+                            for _, SubDrawing in DrawingItem do
+                                SubDrawing.Visible = false
+                            end
+                        else
+                            DrawingItem.Visible = false
+                        end
+                    end
+                end
+                return
+            end
+
+            LastCrosshairActive = true
+
             local function HideAll()
                 for _, DrawingItem in Crosshair.Drawings do
                     if typeof(DrawingItem) == "table" then
@@ -1694,19 +1788,6 @@ end
             end
 
             HideAll()
-
-            local FlagEnabled = Flags[Crosshair.Flag]
-            if typeof(FlagEnabled) == "table" and FlagEnabled.Enabled ~= nil then
-                FlagEnabled = FlagEnabled.Enabled
-            end
-
-            if Crosshair.Visible == false or (Flags[Crosshair.Flag] == false and not Crosshair.ForceVisible) then
-                return
-            end
-
-            if not Flags[Crosshair.Flag] and not Crosshair.ForceVisible then
-                return
-            end
 
             local Center = Crosshair.CustomPosition or (Camera.ViewportSize / 2)
 
@@ -6986,6 +7067,8 @@ end
             ["Name_Text_Position"] = "Top";
             ["Name_Text_Font"] = "ProggyTiny";
             ["Name_Text_Size"] = 9;
+            ["Name_Glow"] = false;
+            ["Name_Glow_Color"] = { Color = rgb(255, 255, 255) };
             
             ["Distance_Text"] = false; 
             ["Distance_Text_Color"] = { Color = rgb(255, 255, 255) };
@@ -6993,12 +7076,16 @@ end
             ["Distance_Text_Font"] = "ProggyTiny";
             ["Distance_Text_Size"] = 12;
             ["Distance_Text_Suffix"] = "s";
+            ["Distance_Glow"] = false;
+            ["Distance_Glow_Color"] = { Color = rgb(255, 255, 255) };
 
             ['Weapon_Text'] = false,
             ["Weapon_Text_Color"] = { Color = rgb(255, 255, 255) };
             ["Weapon_Text_Position"] = "Bottom";
             ["Weapon_Text_Font"] = "ProggyTiny";
             ["Weapon_Text_Size"] = 9;
+            ["Weapon_Glow"] = false;
+            ["Weapon_Glow_Color"] = { Color = rgb(255, 255, 255) };
 
             ['Flags_Text'] = false,
             ["Flags_Text_Color"] = { Color = rgb(255, 255, 255) };
@@ -7007,6 +7094,8 @@ end
             ["Flags_Text_Size"] = 9;
             ["Flags_Flags"] = {};
             ['Flags_Max_Distance'] = 2000;
+            ["Flags_Glow"] = false;
+            ["Flags_Glow_Color"] = { Color = rgb(255, 255, 255) };
         };  
 
         local Options = setmetatable({}, {__index = MiscOptions, __newindex = function(self, key, value) MiscOptions[key] = value end});
@@ -7212,6 +7301,9 @@ end
             end
 
             Library:Connection(RunService.RenderStepped, function(DeltaTime)
+                if not Items.Holder or not Items.Holder.Visible or not Items.Container.Visible then
+                    return
+                end
                 local ColorData = Flags[Cfg.Flag .. "/Color"]
                 local Color = ColorData and ColorData.Color or rgb(255, 255, 255)
                 local Transparency = ColorData and ColorData.Transparency or 0
@@ -7367,6 +7459,7 @@ end
                 Options = {};
                 Chams = properties.Chams or false;
                 ReturnedOptions = {};
+                PreviewTextList = {};
             } 
 
             local Items = Cfg.Items; do 
@@ -7797,6 +7890,17 @@ end
                     return orientation - orientation.p + PointToWorldSpace(orientation, (omax + omin) * 0.5), (omax - omin)
                 end
                 
+                local CornerConstants = {
+                    Vector3.new( 0.5,  0.5,  0.5),
+                    Vector3.new(-0.5,  0.5,  0.5),
+                    Vector3.new( 0.5, -0.5,  0.5),
+                    Vector3.new(-0.5, -0.5,  0.5),
+                    Vector3.new( 0.5,  0.5, -0.5),
+                    Vector3.new(-0.5,  0.5, -0.5),
+                    Vector3.new( 0.5, -0.5, -0.5),
+                    Vector3.new(-0.5, -0.5, -0.5),
+                }
+
                 function Math:Solve(model, viewportFrame, Camera)
                     local min = Vector2.new(math.huge, math.huge)
                     local max = Vector2.new(-math.huge, -math.huge)
@@ -7806,18 +7910,7 @@ end
                             local size = obj.Size
                             local cframe = obj.CFrame
 
-                            local corners = {
-                                Vector3.new( 0.5,  0.5,  0.5),
-                                Vector3.new(-0.5,  0.5,  0.5),
-                                Vector3.new( 0.5, -0.5,  0.5),
-                                Vector3.new(-0.5, -0.5,  0.5),
-                                Vector3.new( 0.5,  0.5, -0.5),
-                                Vector3.new(-0.5,  0.5, -0.5),
-                                Vector3.new( 0.5, -0.5, -0.5),
-                                Vector3.new(-0.5, -0.5, -0.5),
-                            }
-
-                            for _, corner in pairs(corners) do
+                            for _, corner in CornerConstants do
                                 local worldPoint = cframe:PointToWorldSpace(Vector3.new(
                                     corner.X * size.X,
                                     corner.Y * size.Y,
@@ -8314,6 +8407,7 @@ end
                             BorderSizePixel = 0;
                             AutomaticSize = Enum.AutomaticSize.XY;
                             TextSize = 9;
+                            RichText = true;
                             TextXAlignment = Enum.TextXAlignment.Left;
                             BackgroundColor3 = rgb(255, 255, 255)
                         });
@@ -8420,6 +8514,25 @@ end
                             Elements.Name.TextSize = int
                         end, Flag = Config.Flag .. "_TEXT_SIZE"})
 
+                        local GlowToggle = Section:Toggle({
+                            Name = "Glow",
+                            Default = false,
+                            Callback = function(bool)
+                                Options[Config.Prefix .. "_Glow"] = bool
+                                MiscOptions[Config.Prefix .. "_Glow"] = bool
+                            end,
+                            Flag = Config.Flag .. "_GLOW"
+                        })
+
+                        Elements.Options.Glow = GlowToggle:Colorpicker({
+                            Callback = function(color)
+                                Options[Config.Prefix .. "_Glow_Color"] = Flags[Config.Flag .. "_GLOW_COLOR"]
+                                MiscOptions[Config.Prefix .. "_Glow_Color"] = Flags[Config.Flag .. "_GLOW_COLOR"]
+                            end,
+                            Flag = Config.Flag .. "_GLOW_COLOR",
+                            Color = props.GlowColor or rgb(255, 255, 255)
+                        })
+
                         if Config.Prefix == 'Flags' then
                             Elements.Options.Flags = Section:Dropdown({Name = 'Flags', Multi = true, Options = {'MoveState', 'FirstPerson', 'Zooming', 'InventorySearch'}, Callback = function(options)
                                 Options[Config.Prefix .. '_Flags'] = options
@@ -8449,8 +8562,10 @@ end
                         end
 
                         -- Might add more here thats why I made it a table
-                        for _,element in {Elements.Options.Text, Elements.Options.Outline} do 
-                            Elements.Options[#Elements.Options + 1] = element.Items.Animations
+                        for _,element in {Elements.Options.Text, Elements.Options.Outline, Elements.Options.Glow} do 
+                            if element and element.Items and element.Items.Animations then
+                                Elements.Options[#Elements.Options + 1] = element.Items.Animations
+                            end
                         end 
                     -- 
                     
@@ -8640,6 +8755,10 @@ end
 
                 ConfigFlags[Config.Flag] = Config.Set
                 Config.Set({Enabled = Config.Enabled, Position = Config.Position})
+
+                if Cfg.PreviewTextList then
+                    table.insert(Cfg.PreviewTextList, { Elements = Elements, Config = Config })
+                end
 
                 return setmetatable(Config, Library)
             end
@@ -9068,14 +9187,18 @@ end
                 end)
 
                 Library:Connection(RunService.RenderStepped, function()
+                    if not Elements.Gradient or not Elements.BoxHolder or Elements.BoxHolder.Parent == Library.Other then
+                        return
+                    end
                     local SpinSpeed = Options["Box Gradient Spin"] or 0
+                    if SpinSpeed <= 0 then
+                        return
+                    end
                     local BaseRotation = Options["Box Gradient Rotation"] or 0
                     local SpinOffset = (tick() * SpinSpeed * 10) % 360
                     local RotationValue = (180 - BaseRotation) + SpinOffset
 
-                    if Elements.Gradient then
-                        Elements.Gradient.Rotation = RotationValue
-                    end
+                    Elements.Gradient.Rotation = RotationValue
                 end)
 
                 ConfigFlags[Config.Flag] = Config.Set
@@ -9213,9 +9336,39 @@ end
                 end)
 
                 Library:Connection(RunService.RenderStepped, function()	
+                    if not Items.Holder.Visible or not Items.ViewportFrame.Visible then
+                        return
+                    end
                     local Pos, Size = Math:Solve(Cfg.VisualizedModel, Items.ViewportFrame, Items.Camera)
                     Items.Box.Position = Pos
                     Items.Box.Size = Size
+
+                    if Cfg.PreviewTextList then
+                        for _, item in Cfg.PreviewTextList do
+                            local el = item.Elements
+                            local cfg = item.Config
+                            if el and el.Name and el.Name.Parent and el.Name.Parent ~= Library.Other then
+                                local isGlow = Options[cfg.Prefix .. "_Glow"]
+                                if isGlow then
+                                    local baseColor = (Flags[cfg.Flag .. "_COLOR1"] and Flags[cfg.Flag .. "_COLOR1"].Color) or rgb(255, 255, 255)
+                                    local glowData = Flags[cfg.Flag .. "_GLOW_COLOR"]
+                                    local glowColor = (glowData and glowData.Color) or rgb(255, 255, 255)
+                                    local baseText = el.Name:GetAttribute("BaseText")
+                                    if not baseText then
+                                        baseText = el.Name.Text
+                                        el.Name:SetAttribute("BaseText", baseText)
+                                    end
+                                    el.Name.Text = Library:ApplyGlow(baseText, baseColor, glowColor)
+                                else
+                                    local baseText = el.Name:GetAttribute("BaseText")
+                                    if baseText and el.Name.Text ~= baseText then
+                                        el.Name.Text = baseText
+                                        el.Name.TextColor3 = (Flags[cfg.Flag .. "_COLOR1"] and Flags[cfg.Flag .. "_COLOR1"].Color) or rgb(255, 255, 255)
+                                    end
+                                end
+                            end
+                        end
+                    end
                 end)
             
                 if not self.CurrentTab then 
@@ -9325,15 +9478,22 @@ getgenv().Esp = {
             Ins[Prop] = Value
         end
 
-        for _, Prop in {"BackgroundTransparency", "TextTransparency", "ImageTransparency", "ScrollBarImageTransparency", "Transparency"} do
-            pcall(function()
-                if Ins[Prop] ~= nil then
-                    Ins:SetAttribute("Base_" .. Prop, Ins[Prop])
-                end
-            end)
+        local validProps = Library:GetTransparency(Ins)
+        if validProps then
+            for _, Prop in validProps do
+                Ins:SetAttribute("Base_" .. Prop, Ins[Prop] or 0)
+            end
         end
 
         return Ins
+    end
+
+    Esp.ApplyGlow = function(selfOrText, textOrBaseColor, baseColorOrGlow, maybeGlow)
+        if typeof(selfOrText) == "table" and selfOrText == Esp then
+            return Library:ApplyGlow(textOrBaseColor, baseColorOrGlow, maybeGlow)
+        else
+            return Library:ApplyGlow(selfOrText, textOrBaseColor, baseColorOrGlow)
+        end
     end
 
     function Esp:Draw(Instance_, Options)
@@ -9788,6 +9948,7 @@ getgenv().Esp = {
                 BorderSizePixel      = 0,
                 AutomaticSize        = Enum.AutomaticSize.XY,
                 TextSize             = 9,
+                RichText             = true,
                 BackgroundColor3     = rgb(255, 255, 255),
             })
             Esp:Create("UIStroke", { Parent = Items.Flags, LineJoinMode = Enum.LineJoinMode.Miter, Color = Color3.new(0.1, 0.1, 0.1) })
@@ -9804,6 +9965,7 @@ getgenv().Esp = {
                 BorderSizePixel      = 0,
                 AutomaticSize        = Enum.AutomaticSize.XY,
                 TextSize             = 9,
+                RichText             = true,
                 BackgroundColor3     = rgb(255, 255, 255),
             })
             Esp:Create("UIStroke", { Parent = Items.Text, LineJoinMode = Enum.LineJoinMode.Miter, Color = Color3.new(0.1, 0.1, 0.1) })
@@ -9819,6 +9981,7 @@ getgenv().Esp = {
                 BorderSizePixel      = 0,
                 AutomaticSize        = Enum.AutomaticSize.XY,
                 TextSize             = 9,
+                RichText             = true,
                 BackgroundColor3     = rgb(255, 255, 255),
             })
             Esp:Create("UIStroke", { Parent = Items.Distance, LineJoinMode = Enum.LineJoinMode.Miter, Color = Color3.new(0.1, 0.1, 0.1) })
@@ -9834,6 +9997,7 @@ getgenv().Esp = {
                 BorderSizePixel      = 0,
                 AutomaticSize        = Enum.AutomaticSize.XY,
                 TextSize             = 9,
+                RichText             = true,
                 BackgroundColor3     = rgb(255, 255, 255),
             })
             Esp:Create("UIStroke", { Parent = Items.Weapon, LineJoinMode = Enum.LineJoinMode.Miter, Color = Color3.new(0.1, 0.1, 0.1) })
@@ -10198,9 +10362,9 @@ getgenv().Esp = {
                     TextObj.Parent = MiscOptions[Prefix .. "_Text"] and Items[Pos .. "Texts"] or Esp.Cache
 
                     if MiscOptions[Prefix .. "_Text"] then
-                        TextObj.Text       = Info.Content or ""
+                        local RawContent   = Info.Content or ""
                         TextObj.Name       = tostring(Pos)
-                        TextObj.TextColor3 = MiscOptions[Prefix .. "_Text_Color"].Color
+                        local BaseColor    = MiscOptions[Prefix .. "_Text_Color"].Color
                         TextObj.FontFace   = Fonts[MiscOptions[Prefix .. "_Text_Font"]]
                         TextObj.TextSize   = MiscOptions[Prefix .. "_Text_Size"]
 
@@ -10210,14 +10374,25 @@ getgenv().Esp = {
                                 ActiveStates = Esp:CheckState(Player, MiscOptions["Flags_Flags"])
                             end
                             if ActiveStates then
-                                TextObj.Text = table.concat(ActiveStates, "\n")
+                                RawContent = table.concat(ActiveStates, "\n")
                             end
                         end
 
                         if Prefix == "Weapon" and Distance < MiscOptions["Flags_Max_Distance"] then
                             if GameName:find("Apocalypse") then
-                                TextObj.Text = Esp:GetWeapon(Player) or ""
+                                RawContent = Esp:GetWeapon(Player) or ""
                             end
+                        end
+
+                        local GlowEnabled = MiscOptions[Prefix .. "_Glow"]
+                        if GlowEnabled then
+                            local GlowColorData = MiscOptions[Prefix .. "_Glow_Color"]
+                            local GlowColor = (GlowColorData and GlowColorData.Color) or (typeof(GlowColorData) == "Color3" and GlowColorData) or rgb(255, 255, 255)
+                            TextObj.RichText = true
+                            TextObj.Text = Library:ApplyGlow(RawContent, BaseColor, GlowColor)
+                        else
+                            TextObj.TextColor3 = BaseColor
+                            TextObj.Text = RawContent
                         end
 
                         if Pos == "Top" or Pos == "Bottom" then
