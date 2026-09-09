@@ -5550,9 +5550,15 @@ end
                 }
                 
                 KeybindElement.SetText(string.format("%s [%s] - %s", Cfg.Name, __text, Cfg.Mode))
-                
-                local ToggleActive = Cfg.LinkedToggle and Cfg.LinkedToggle.Enabled or false
-                KeybindElement.SetVisible(Flags[Cfg.Flag .. "_LIST"] and (Cfg.Active or ToggleActive) or false)
+                KeybindElement.SetVisible(Flags[Cfg.Flag .. "_LIST"] and Cfg.Active or false)
+            end
+
+            function Cfg.SyncActive(bool)
+                Cfg.Active = bool
+
+                Flags[Cfg.Flag].Active = bool
+
+                KeybindElement.SetVisible(Flags[Cfg.Flag .. "_LIST"] and Cfg.Active or false)
             end
 
             function Cfg.SetVisible(bool)
