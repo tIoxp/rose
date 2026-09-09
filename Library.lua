@@ -4205,7 +4205,7 @@ end
             ConfigFlags[Cfg.Flag] = Cfg.Set
 
             return setmetatable(Cfg, Library)
-        end
+        end 
         
         function Library:Slider(properties) 
             local Cfg = {
@@ -5550,14 +5550,6 @@ end
                 }
                 
                 KeybindElement.SetText(string.format("%s [%s] - %s", Cfg.Name, __text, Cfg.Mode))
-                KeybindElement.SetVisible(Flags[Cfg.Flag .. "_LIST"] and Cfg.Active or false)
-            end
-
-            function Cfg.SyncActive(bool)
-                Cfg.Active = bool
-
-                Flags[Cfg.Flag].Active = bool
-
                 KeybindElement.SetVisible(Flags[Cfg.Flag .. "_LIST"] and Cfg.Active or false)
             end
 
