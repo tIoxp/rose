@@ -35,6 +35,8 @@ end
         Folders = {
             "/fonts",
             "/configs",
+            "/Utils",
+            "/Utils/Fonts",
         },
         Flags = {},
         Fonts = {},
@@ -142,8 +144,18 @@ end
     
     Library.__index = Library
 
+    local function ensureFolder(path)
+        local current = ""
+        for part in string.gmatch(path, "[^/]+") do
+            current = current == "" and part or (current .. "/" .. part)
+            if not isfolder(current) then
+                pcall(makefolder, current)
+            end
+        end
+    end
+
     for _,path in Library.Folders do 
-        makefolder(Library.Directory .. path)
+        ensureFolder(Library.Directory .. path)
     end
 
     local Flags = Library.Flags 
@@ -165,62 +177,64 @@ end
 
     local Fonts = Library.Fonts
     do
-        if not isfolder("RoseHook/Utils/Fonts") then 
-            makefolder("RoseHook/Utils/Fonts") 
-        end
+        ensureFolder("RoseHook/Utils/Fonts")
 
-        local function RegisterFont(Name, Weight, Style, Asset)
-            if not isfile("RoseHook/Utils/Fonts/" .. Asset.Id) then
-                writefile("RoseHook/Utils/Fonts/" .. Asset.Id, Asset.Font)
-            end
-
-            local fontFile = "RoseHook/Utils/Fonts/" .. Name .. ".font"
-            if not isfile(fontFile) then
-                local Data = {
-                    name = Name,
-                    faces = {
-                        {
-                            name = "Normal",
-                            weight = Weight,
-                            style = Style,
-                            assetId = getcustomasset("RoseHook/Utils/Fonts/" .. Asset.Id),
-                        },
-                    },
-                }
-                writefile(fontFile, HttpService:JSONEncode(Data))
-            end
-
-            return getcustomasset(fontFile);
-        end
+        local defaultFallback = Font.fromEnum(Enum.Font.SourceSans)
 
         for Name, Suffix in FontNames do 
-            local Weight = 400 
-            if Name == "Rubik" then 
-                Weight = 900 
-            end 
-
+            local Weight = (Name == "Rubik") and 900 or 400 
             local fontFile = "RoseHook/Utils/Fonts/" .. Name .. ".font"
             local ttfFile = "RoseHook/Utils/Fonts/" .. Suffix
 
-            local RegisteredFont
-            if isfile(fontFile) and isfile(ttfFile) then
-                RegisteredFont = getcustomasset(fontFile)
-            else
-                local FontData
-                if isfile(ttfFile) then
-                    FontData = readfile(ttfFile)
-                else
-                    FontData = game:HttpGet("https://github.com/i77lhm/storage/raw/refs/heads/main/fonts/" .. Suffix)
+            local success, fontObj = pcall(function()
+                local hasTtf = isfile(ttfFile)
+                if hasTtf then
+                    local ok, content = pcall(readfile, ttfFile)
+                    if not ok or not content or #content == 0 then
+                        hasTtf = false
+                    end
                 end
 
-                RegisteredFont = RegisterFont(Name, Weight, "Normal", {
-                    Id = Suffix,
-                    Font = FontData,
-                }) 
+                if not hasTtf then
+                    local ok, fontData = pcall(function()
+                        return game:HttpGet("https://github.com/i77lhm/storage/raw/refs/heads/main/fonts/" .. Suffix)
+                    end)
+                    if ok and fontData and #fontData > 0 then
+                        pcall(writefile, ttfFile, fontData)
+                    end
+                end
+
+                if isfile(ttfFile) then
+                    local ttfAsset = getcustomasset(ttfFile)
+                    local data = {
+                        name = Name,
+                        faces = {
+                            {
+                                name = "Normal",
+                                weight = Weight,
+                                style = "Normal",
+                                assetId = ttfAsset,
+                            },
+                        },
+                    }
+                    pcall(writefile, fontFile, HttpService:JSONEncode(data))
+                    local registeredFont = getcustomasset(fontFile)
+                    return Font.new(registeredFont, Enum.FontWeight.Regular, Enum.FontStyle.Normal)
+                end
+                return nil
+            end)
+
+            if success and fontObj then
+                Fonts[Name] = fontObj
             end
-            
-            Fonts[Name] = Font.new(RegisteredFont, Enum.FontWeight.Regular, Enum.FontStyle.Normal)
         end
+
+        setmetatable(Fonts, {
+            __index = function(self, key)
+                return rawget(self, "ProggyClean") or defaultFallback
+            end
+        })
+        Library.Fonts = Fonts
     end
 --
 
@@ -431,16 +445,19 @@ end
         end
 
         function Library:ConvertEnum(enum)
+            if typeof(enum) == "EnumItem" then
+                return enum
+            end
             local EnumParts = {}
 
-            for _,part in string.gmatch(tostring(enum), "[%w_]+") do
+            for part in string.gmatch(tostring(enum), "[%w_]+") do
                 table.insert(EnumParts, part)
             end
             
-            local EnumTable = tostring(enum)  
+            local EnumTable = Enum  
 
             for i = 2, #EnumParts do
-                local EnumItem = EnumTable[EnumParts[i]]
+                local EnumItem = EnumTable and EnumTable[EnumParts[i]]
         
                 EnumTable = EnumItem
             end
@@ -4039,6 +4056,7 @@ end
                 -- Tooltip = {Title = "Title", Text = "Text goes here\n Whatever", Width = 100}
                 Tooltip = properties.Tooltip or nil;
 
+                LinkedKeybinds = {};
                 Items = {};
             }
 
@@ -4184,6 +4202,20 @@ end
 
                 Cfg.Callback(Bool)                
                 Flags[Cfg.Flag] = Bool
+
+                if Cfg.LinkedKeybinds then
+                    for _, keybind in Cfg.LinkedKeybinds do
+                        if keybind.Active ~= Bool then
+                            keybind.Active = Bool
+                            if Flags[keybind.Flag] and type(Flags[keybind.Flag]) == "table" then
+                                Flags[keybind.Flag].Active = Bool
+                            end
+                            if keybind.KeybindElement then
+                                keybind.KeybindElement.SetVisible(Flags[keybind.Flag .. "_LIST"] and keybind.Active or false)
+                            end
+                        end
+                    end
+                end
             end 
             
             function Cfg.Keybind(self, properties)
@@ -4192,7 +4224,11 @@ end
                 properties.Name = properties.Name or Cfg.Name .. " Keybind"
                 properties.Flag = properties.Flag or Cfg.Flag .. "_Keybind"
                 
-                return Library:Keybind(properties)
+                local keybind = Library:Keybind(properties)
+                Cfg.LinkedKeybinds = Cfg.LinkedKeybinds or {}
+                table.insert(Cfg.LinkedKeybinds, keybind)
+                Cfg.LinkedKeybind = keybind
+                return keybind
             end
 
             Items.Toggle.MouseButton1Click:Connect(function()
@@ -5358,9 +5394,9 @@ end
 
                 Key = properties.Key or nil;
                 Mode = properties.Mode or "Toggle";
-                Active = properties.Default or false; 
+                Active = (properties.Active ~= nil and properties.Active) or (properties.Default ~= nil and properties.Default) or (properties.Toggle and properties.Toggle.Enabled) or false; 
                 LinkedToggle = properties.Toggle or nil;
-                Show = properties.ShowInList or true;
+                Show = properties.ShowInList ~= nil and properties.ShowInList or true;
 
                 Open = false;
                 Binding;
@@ -5369,6 +5405,15 @@ end
                 Items = {};
                 Tweening = false;
             }
+
+            if Cfg.LinkedToggle then
+                Cfg.LinkedToggle.LinkedKeybinds = Cfg.LinkedToggle.LinkedKeybinds or {}
+                table.insert(Cfg.LinkedToggle.LinkedKeybinds, Cfg)
+                Cfg.LinkedToggle.LinkedKeybind = Cfg
+                if Cfg.LinkedToggle.Enabled ~= nil then
+                    Cfg.Active = Cfg.LinkedToggle.Enabled
+                end
+            end
             
             Flags[Cfg.Flag] = {
                 Mode = Cfg.Mode,
@@ -5377,6 +5422,7 @@ end
             }
 
             local KeybindElement = Library.KeybindList:ListElement({})
+            Cfg.KeybindElement = KeybindElement
 
             local Items = Cfg.Items; do 
                 -- Component
@@ -5482,7 +5528,7 @@ end
                             Cfg.Set(option)
                         end
                     end, Default = Cfg.Mode, Flag = Cfg.Flag .. "_MODE"})
-                    Section:Toggle({Name = "Show on list", Flag = Cfg.Flag .. "_LIST", Callback = function()
+                    Section:Toggle({Name = "Show on list", Flag = Cfg.Flag .. "_LIST", Default = Cfg.Show, Callback = function()
                         KeybindElement.SetVisible(Flags[Cfg.Flag .. "_LIST"] and Cfg.Active or false)
                     end})
                 --
@@ -5525,7 +5571,7 @@ end
                     Cfg.Key = input.Key or "NONE"
                     Cfg.Mode = input.Mode or "Toggle"
 
-                    if input.Active then
+                    if input.Active ~= nil then
                         Cfg.Active = input.Active
                     end
 
@@ -5533,7 +5579,9 @@ end
                 end 
 
                 if Cfg.LinkedToggle then
-                    Cfg.LinkedToggle.Set(Cfg.Active)
+                    if Cfg.LinkedToggle.Enabled ~= Cfg.Active then
+                        Cfg.LinkedToggle.Set(Cfg.Active)
+                    end
                 end
 
                 Cfg.Callback(Cfg.Active)
@@ -6140,7 +6188,7 @@ end
                 Section:Toggle({Name = "Toggle Watermark", Callback = function(bool)
                     Window.SetWatermarkVisible(bool)
                 end})
-                Section:Toggle({Name = "Toggle Keybind List", Callback = function(bool)
+                Section:Toggle({Name = "Toggle Keybind List", Default = true, Callback = function(bool)
                     Library.KeybindList.Items.Holder.Visible = bool 
                     Library.KeybindList.Items.List.Visible = bool 
                 end})
