@@ -482,20 +482,9 @@ end
             local baseG = math.clamp(math.floor(effectiveBase.G * 255), 0, 255)
             local baseB = math.clamp(math.floor(effectiveBase.B * 255), 0, 255)
 
-            local totalLetters = 0
-            for i = 1, #text do
-                local b = string.byte(text, i)
-                if b ~= 32 and b ~= 10 and b ~= 13 and b ~= 9 then
-                    totalLetters = totalLetters + 1
-                end
-            end
-
-            if totalLetters == 0 then return text end
-
-            local speed = 7
-            local waveWidth = 1.7
-            local gap = 3
-            local cycleLength = totalLetters + gap
+            local speed = 6.5
+            local waveWidth = 2.0
+            local cycleLength = 16
             local waveCenter = (tick() * speed) % cycleLength + 1
 
             local out = {}
@@ -504,7 +493,10 @@ end
             for i = 1, #text do
                 local ch = text:sub(i, i)
                 local b = string.byte(ch)
-                if b == 32 or b == 10 or b == 13 or b == 9 then
+                if b == 10 or b == 13 then
+                    letterIdx = 0
+                    table.insert(out, ch)
+                elseif b == 32 or b == 9 then
                     table.insert(out, ch)
                 else
                     letterIdx = letterIdx + 1
@@ -8539,21 +8531,6 @@ end
 
                     
                         local Section = setmetatable(Config, Library)
-                        local Label = Section:Label({Name = "Color"})
-                        Elements.Options.Text = Label:Colorpicker({Callback = function(value)
-                            Elements.Name.TextColor3 = Flags[Config.Flag .. "_COLOR1"].Color
-                            Options[Config.Prefix .. "_Text_Color"] = Flags[Config.Flag .. "_COLOR1"]
-                        end, Flag = Config.Flag .. "_COLOR1", Color = props.Color1 or rgb(255, 255, 255)})
-
-                        Elements.Options.Font = Section:Dropdown({Name = "Font", Options = FontIndexes, Default = "ProggyTiny", Callback = function(option)
-                            Options[Config.Prefix .. "_Text_Font"] = option
-                            Elements.Name.FontFace = Fonts[option]
-                        end, Flag = Config.Flag .. "_FONT"})
-
-                        Elements.Options.TextSize = Section:Slider({Name = "Text Size", Min = 1, Max = 30, Default = 9, Decimal = 1, Callback = function(int)
-                            Options[Config.Prefix .. "_Text_Size"] = int
-                            Elements.Name.TextSize = int
-                        end, Flag = Config.Flag .. "_TEXT_SIZE"})
 
                         local GlowToggle = Section:Toggle({
                             Name = "Glow",
@@ -8565,7 +8542,18 @@ end
                             Flag = Config.Flag .. "_GLOW"
                         })
 
+                        Elements.Options.Text = GlowToggle:Colorpicker({
+                            Name = "Color",
+                            Callback = function(value)
+                                Elements.Name.TextColor3 = Flags[Config.Flag .. "_COLOR1"].Color
+                                Options[Config.Prefix .. "_Text_Color"] = Flags[Config.Flag .. "_COLOR1"]
+                            end,
+                            Flag = Config.Flag .. "_COLOR1",
+                            Color = props.Color1 or rgb(255, 255, 255)
+                        })
+
                         Elements.Options.Glow = GlowToggle:Colorpicker({
+                            Name = "Glow Color",
                             Callback = function(color)
                                 Options[Config.Prefix .. "_Glow_Color"] = Flags[Config.Flag .. "_GLOW_COLOR"]
                                 MiscOptions[Config.Prefix .. "_Glow_Color"] = Flags[Config.Flag .. "_GLOW_COLOR"]
@@ -8573,6 +8561,16 @@ end
                             Flag = Config.Flag .. "_GLOW_COLOR",
                             Color = props.GlowColor or rgb(255, 255, 255)
                         })
+
+                        Elements.Options.Font = Section:Dropdown({Name = "Font", Options = FontIndexes, Default = "ProggyTiny", Callback = function(option)
+                            Options[Config.Prefix .. "_Text_Font"] = option
+                            Elements.Name.FontFace = Fonts[option]
+                        end, Flag = Config.Flag .. "_FONT"})
+
+                        Elements.Options.TextSize = Section:Slider({Name = "Text Size", Min = 1, Max = 30, Default = 9, Decimal = 1, Callback = function(int)
+                            Options[Config.Prefix .. "_Text_Size"] = int
+                            Elements.Name.TextSize = int
+                        end, Flag = Config.Flag .. "_TEXT_SIZE"})
 
                         if Config.Prefix == 'Flags' then
                             Elements.Options.Flags = Section:Dropdown({Name = 'Flags', Multi = true, Options = {'MoveState', 'FirstPerson', 'Zooming', 'InventorySearch'}, Callback = function(options)
