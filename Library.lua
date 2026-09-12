@@ -27,6 +27,9 @@ end
     local vec2, vec3, dim2, dim, rect, dim_offset = Vector2.new, Vector3.new, UDim2.new, UDim.new, Rect.new, UDim2.fromOffset
     local color, rgb, hex, hsv, rgbseq, rgbkey, numseq, numkey = Color3.new, Color3.fromRGB, Color3.fromHex, Color3.fromHSV, ColorSequence.new, ColorSequenceKeypoint.new, NumberSequence.new, NumberSequenceKeypoint.new
     local angle, empty_cfr, cfr = CFrame.Angles, CFrame.new(), CFrame.new
+	Workspace\GetPropertyChangedSignal("CurrentCamera"):Connect(function() 
+	    Camera = Workspace.CurrentCamera
+	end)
 -- 
 
 -- Library init
