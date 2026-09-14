@@ -22,14 +22,53 @@ end
         GameName = game:GetService("MarketplaceService"):GetProductInfo(game.PlaceId).Name
     end)
     local InputService, HttpService, GuiService, RunService, Stats, CoreGui, TweenService, SoundService, Workspace, Players, Lighting, ContextActionService = game:GetService("UserInputService"), game:GetService("HttpService"), game:GetService("GuiService"), game:GetService("RunService"), game:GetService("Stats"), game:GetService("CoreGui"), game:GetService("TweenService"), game:GetService("SoundService"), game:GetService("Workspace"), game:GetService("Players"), game:GetService("Lighting"), game:GetService("ContextActionService")
-    local Camera, LocalPlayer, gui_offset = Workspace.CurrentCamera, Players.LocalPlayer, GuiService:GetGuiInset().Y
+    local Camera = Workspace.CurrentCamera or Workspace:FindFirstChildOfClass("Camera")
+    local function GetCamera()
+        local current = Workspace.CurrentCamera or Workspace:FindFirstChildOfClass("Camera")
+        if current then
+            Camera = current
+        end
+        return Camera or current
+    end
+    Camera = GetCamera()
+
+    local function GetViewportSize()
+        local cam = GetCamera()
+        if cam and cam.ViewportSize and cam.ViewportSize.X > 0 and cam.ViewportSize.Y > 0 then
+            return cam.ViewportSize
+        end
+        return Vector2.new(1920, 1080)
+    end
+
+    local function UpdateCamera()
+        local newCam = Workspace.CurrentCamera or Workspace:FindFirstChildOfClass("Camera")
+        if newCam then
+            Camera = newCam
+        end
+    end
+
+    Workspace:GetPropertyChangedSignal("CurrentCamera"):Connect(UpdateCamera)
+    Workspace.ChildAdded:Connect(function(child)
+        if child:IsA("Camera") then
+            UpdateCamera()
+        end
+    end)
+
+    if not Camera then
+        task.spawn(function()
+            while not Camera do
+                Camera = Workspace.CurrentCamera or Workspace:FindFirstChildOfClass("Camera")
+                if Camera then break end
+                task.wait(0.1)
+            end
+        end)
+    end
+
+    local LocalPlayer, gui_offset = Players.LocalPlayer, GuiService:GetGuiInset().Y
     local Mouse = LocalPlayer:GetMouse()
     local vec2, vec3, dim2, dim, rect, dim_offset = Vector2.new, Vector3.new, UDim2.new, UDim.new, Rect.new, UDim2.fromOffset
     local color, rgb, hex, hsv, rgbseq, rgbkey, numseq, numkey = Color3.new, Color3.fromRGB, Color3.fromHex, Color3.fromHSV, ColorSequence.new, ColorSequenceKeypoint.new, NumberSequence.new, NumberSequenceKeypoint.new
     local angle, empty_cfr, cfr = CFrame.Angles, CFrame.new(), CFrame.new
-    Workspace:GetPropertyChangedSignal("CurrentCamera"):Connect(function(NewCamera)
-        Camera = NewCamera
-    end)
 -- 
 
 -- Library init
@@ -339,9 +378,9 @@ end
                     Library:Tween(Parent, {
                         Size = dim2(
                             Size.X.Scale,
-                            math.clamp(Size.X.Offset + (input.Position.X - InputLost.X), ParentSize.X.Offset, Camera.ViewportSize.X), 
+                            math.clamp(Size.X.Offset + (input.Position.X - InputLost.X), ParentSize.X.Offset, GetViewportSize().X), 
                             Size.Y.Scale, 
-                            math.clamp(Size.Y.Offset + (input.Position.Y - InputLost.Y), ParentSize.Y.Offset, Camera.ViewportSize.Y)
+                            math.clamp(Size.Y.Offset + (input.Position.Y - InputLost.Y), ParentSize.Y.Offset, GetViewportSize().Y)
                         )
                     }, TweenInfo.new(Library.DraggingSpeed, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut, 0, false, 0))
                 end
@@ -402,8 +441,9 @@ end
 
             Library:Connection(InputService.InputChanged, function(Input, game_event) 
                 if Dragging and Input.UserInputType == Enum.UserInputType.MouseMovement then
-                    local Horizontal = Camera.ViewportSize.X
-                    local Vertical = Camera.ViewportSize.Y
+                    local vp = GetViewportSize()
+                    local Horizontal = vp.X
+                    local Vertical = vp.Y
 
                     local NewPosition = dim2(
                         0,
@@ -1668,9 +1708,10 @@ end
 
         local function ParsePosition(Position)
             if typeof(Position) == "UDim2" then
+                local vp = GetViewportSize()
                 return Vector2.new(
-                    Position.X.Offset + (Camera.ViewportSize.X * Position.X.Scale),
-                    Position.Y.Offset + (Camera.ViewportSize.Y * Position.Y.Scale)
+                    Position.X.Offset + (vp.X * Position.X.Scale),
+                    Position.Y.Offset + (vp.Y * Position.Y.Scale)
                 )
             elseif typeof(Position) == "Vector2" then
                 return Position
@@ -1687,7 +1728,7 @@ end
         end
 
         function Crosshair.GetPosition(SelfOrNil)
-            return Crosshair.CustomPosition or (Camera.ViewportSize / 2)
+            return Crosshair.CustomPosition or (GetViewportSize() / 2)
         end
 
         function Crosshair.SetVisible(SelfOrVisible, MaybeVisible)
@@ -1801,7 +1842,7 @@ end
 
             HideAll()
 
-            local Center = Crosshair.CustomPosition or (Camera.ViewportSize / 2)
+            local Center = Crosshair.CustomPosition or (GetViewportSize() / 2)
 
             local ColorData = Flags[Crosshair.Flag .. "/Color"]
             local FlagColor = (ColorData and ColorData.Color) or (typeof(ColorData) == "Color3" and ColorData) or rgb(255, 255, 255)
@@ -2298,8 +2339,9 @@ end
                             UpdateHealth(health or 100, maxHealth or 100)
                         end
 
-                        if root and Camera then
-                            local dist = math.floor((Camera.CFrame.Position - root.Position).Magnitude)
+                        local cam = GetCamera()
+                        if root and cam then
+                            local dist = math.floor((cam.CFrame.Position - root.Position).Magnitude)
                             Items.Distance.Text = string.format("Dist: %d studs", dist)
                         elseif distance then
                             Items.Distance.Text = string.format("Dist: %s studs", tostring(distance))
@@ -2326,8 +2368,9 @@ end
                         UpdateHealth(health or 100, maxHealth or 100)
                     end
 
-                    if root and Camera then
-                        local dist = math.floor((Camera.CFrame.Position - root.Position).Magnitude)
+                    local cam = GetCamera()
+                    if root and cam then
+                        local dist = math.floor((cam.CFrame.Position - root.Position).Magnitude)
                         Items.Distance.Text = string.format("Dist: %d studs", dist)
                     elseif distance then
                         Items.Distance.Text = string.format("Dist: %s studs", tostring(distance))
@@ -2403,8 +2446,9 @@ end
                     local char = Cfg.Target:IsA("Player") and Cfg.Target.Character or (Cfg.Target:IsA("Model") and Cfg.Target or nil)
                     if char then
                         local root = char:FindFirstChild("HumanoidRootPart") or char:FindFirstChild("Head")
-                        if root and Camera then
-                            local dist = math.floor((Camera.CFrame.Position - root.Position).Magnitude)
+                        local cam = GetCamera()
+                        if root and cam then
+                            local dist = math.floor((cam.CFrame.Position - root.Position).Magnitude)
                             Items.Distance.Text = string.format("Dist: %d studs", dist)
                         end
                     end
@@ -6545,7 +6589,7 @@ end
                     Parent = Library.Items;
                     Name = "OutlineMenu";
                     Visible = false;
-                    Position = dim2(0, (Camera.ViewportSize.X / 2) - 520/2, 0, (Camera.ViewportSize.Y / 2) - 398/2);
+                    Position = dim2(0, (GetViewportSize().X / 2) - 520/2, 0, (GetViewportSize().Y / 2) - 398/2);
                     BorderColor3 = rgb(0, 0, 0);
                     Size = dim2(0, 520, 0, 170);
                     BorderSizePixel = 0;
@@ -9549,11 +9593,13 @@ getgenv().Esp = {
     end
 
     function Esp:ConvertScreenPoint(WorldPosition)
-        local ViewportSize = Camera.ViewportSize
-        local LocalPos = Camera.CFrame:pointToObjectSpace(WorldPosition)
+        local cam = GetCamera() or Camera or Workspace.CurrentCamera
+        if not cam then return Vector3.zero, false end
+        local ViewportSize = cam.ViewportSize
+        local LocalPos = cam.CFrame:pointToObjectSpace(WorldPosition)
 
-        local AspectRatio = ViewportSize.X / ViewportSize.Y
-        local HalfY = -LocalPos.Z * math.tan(math.rad(Camera.FieldOfView / 2))
+        local AspectRatio = ViewportSize.X / math.max(ViewportSize.Y, 1)
+        local HalfY = -LocalPos.Z * math.tan(math.rad(cam.FieldOfView / 2))
         local HalfX = AspectRatio * HalfY
 
         local FarPlaneCorner = Vector3.new(-HalfX, HalfY, LocalPos.Z)
@@ -9585,7 +9631,9 @@ getgenv().Esp = {
     }
 
     function Esp:WorldToScreen(WorldPosition)
-        local ScreenPosition, OnScreen = Camera:WorldToViewportPoint(WorldPosition)
+        local cam = GetCamera() or Camera or Workspace.CurrentCamera
+        if not cam then return Vector2.zero, false, 0 end
+        local ScreenPosition, OnScreen = cam:WorldToViewportPoint(WorldPosition)
         return Vector2.new(ScreenPosition.X, ScreenPosition.Y), OnScreen, ScreenPosition.Z
     end
 
@@ -9595,7 +9643,7 @@ getgenv().Esp = {
             Corners[I] = self:WorldToScreen((CF + Size * 0.5 * self.Vertices[I]).Position)
         end
 
-        local Min = Vector2.zero.Min(Camera.ViewportSize, unpack(Corners))
+        local Min = Vector2.zero.Min(GetViewportSize(), unpack(Corners))
         local Max = Vector2.zero.Max(Vector2.zero, unpack(Corners))
 
         return {
@@ -10280,7 +10328,8 @@ getgenv().Esp = {
     end
 
     function Esp.Update()
-        if not Esp or not Camera or not MiscOptions["Enabled"] then
+        local cam = GetCamera() or Camera or Workspace.CurrentCamera
+        if not Esp or not cam or not MiscOptions["Enabled"] then
             for _, Data in Esp.Players do
                 if Data.Items and Data.Items.Holder then
                     Data.Items.Holder.Visible = false
@@ -10303,7 +10352,7 @@ getgenv().Esp = {
                 continue
             end
 
-            local Distance  = (Camera.CFrame.Position - Root.Position).Magnitude
+            local Distance  = (cam.CFrame.Position - Root.Position).Magnitude
             local _, OnScreen = Esp:WorldToScreen(Root.Position)
 
             if Distance > MaxDistance or not OnScreen then
