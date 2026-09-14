@@ -9458,11 +9458,6 @@ getgenv().Esp = {
     Cache = Instance.new("ScreenGui", gethui()),
     Connections = {},
 }; do
-    CurrentCamera = Workspace.CurrentCamera
-    Workspace:GetPropertyChangedSignal("CurrentCamera"):Connect(function(NewCamera)
-        CurrentCamera = NewCamera
-    end)
-
     Esp.ScreenGui.IgnoreGuiInset = true
     Esp.ScreenGui.Name = "EspObject"
 
@@ -9551,11 +9546,11 @@ getgenv().Esp = {
     end
 
     function Esp:ConvertScreenPoint(WorldPosition)
-        local ViewportSize = CurrentCamera.ViewportSize
-        local LocalPos = CurrentCamera.CFrame:pointToObjectSpace(WorldPosition)
+        local ViewportSize = Camera.ViewportSize
+        local LocalPos = Camera.CFrame:pointToObjectSpace(WorldPosition)
 
         local AspectRatio = ViewportSize.X / ViewportSize.Y
-        local HalfY = -LocalPos.Z * math.tan(math.rad(CurrentCamera.FieldOfView / 2))
+        local HalfY = -LocalPos.Z * math.tan(math.rad(Camera.FieldOfView / 2))
         local HalfX = AspectRatio * HalfY
 
         local FarPlaneCorner = Vector3.new(-HalfX, HalfY, LocalPos.Z)
@@ -9587,7 +9582,7 @@ getgenv().Esp = {
     }
 
     function Esp:WorldToScreen(WorldPosition)
-        local ScreenPosition, OnScreen = CurrentCamera:WorldToViewportPoint(WorldPosition)
+        local ScreenPosition, OnScreen = Camera:WorldToViewportPoint(WorldPosition)
         return Vector2.new(ScreenPosition.X, ScreenPosition.Y), OnScreen, ScreenPosition.Z
     end
 
@@ -9597,7 +9592,7 @@ getgenv().Esp = {
             Corners[I] = self:WorldToScreen((CF + Size * 0.5 * self.Vertices[I]).Position)
         end
 
-        local Min = Vector2.zero.Min(CurrentCamera.ViewportSize, unpack(Corners))
+        local Min = Vector2.zero.Min(Camera.ViewportSize, unpack(Corners))
         local Max = Vector2.zero.Max(Vector2.zero, unpack(Corners))
 
         return {
@@ -10305,7 +10300,7 @@ getgenv().Esp = {
                 continue
             end
 
-            local Distance  = (CurrentCamera.CFrame.Position - Root.Position).Magnitude
+            local Distance  = (Camera.CFrame.Position - Root.Position).Magnitude
             local _, OnScreen = Esp:WorldToScreen(Root.Position)
 
             if Distance > MaxDistance or not OnScreen then
@@ -10422,7 +10417,7 @@ getgenv().Esp = {
                             end
                         end
 
-                        if Prefix == "Weapon" and Distance < MiscOptions["Flags_Max_Distance"] then
+                        if Prefix == "Weapon" then
                             if GameName:find("Apocalypse") then
                                 RawContent = Esp:GetWeapon(Player) or ""
                             end
