@@ -10280,7 +10280,7 @@ getgenv().Esp = {
     end
 
     function Esp.Update()
-        if not Esp or not MiscOptions["Enabled"] then
+        if not Esp or not Camera or not MiscOptions["Enabled"] then
             for _, Data in Esp.Players do
                 if Data.Items and Data.Items.Holder then
                     Data.Items.Holder.Visible = false
