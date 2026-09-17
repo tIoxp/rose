@@ -21,6 +21,18 @@ local mouse = localplayer:GetMouse()
 local Remove = table.remove
 local Unpack = table.unpack
 local Find = table.find
+--
+local Themes = {
+    Default = {1, [[{"Outline":"000000","Accent":"5d3e98","LightText":"ffffff","DarkText":"afafaf","LightContrast":"1e1e1e","CursorOutline":"0a0a0a","DarkContrast":"141414","TextBorder":"000000","Inline":"323232"}]]},
+    Neverlose = {4, [[{"Outline":"000005","Accent":"00b4f0","LightText":"ffffff","DarkText":"afafaf","LightContrast":"000f1e","CursorOutline":"0f0f28","DarkContrast":"050514","TextBorder":"0a0a0a","Inline":"0a1e28"}]]},
+    Onetap = {8, [[{"Outline":"000000","Accent":"dda85d","LightText":"d6d9e0","DarkText":"afafaf","LightContrast":"2c3037","CursorOutline":"000000","DarkContrast":"1f2125","TextBorder":"000000","Inline":"4e5158"}]]},
+    Entropy = {9, [[{"Outline":"0a0a0a","Accent":"81bbe9","LightText":"dcdcdc","DarkText":"afafaf","LightContrast":"3d3a43","CursorOutline":"000000","DarkContrast":"302f37","TextBorder":"000000","Inline":"4c4a52"}]]},
+    Interwebz = {10, [[{"Outline":"1a1a1a","Accent":"c9654b","LightText":"fcfcfc","DarkText":"a8a8a8","LightContrast":"291f38","CursorOutline":"1a1a1a","DarkContrast":"1f162b","TextBorder":"000000","Inline":"40364f"}]]},
+    Dracula = {11, [[{"Outline":"202126","Accent":"9a81b3","LightText":"b4b4b8","DarkText":"88888b","LightContrast":"2a2c38","CursorOutline":"202126","DarkContrast":"252730","TextBorder":"2a2c38","Inline":"3c384d"}]]},
+    Spotify = {12, [[{"Outline":"0a0a0a","Accent":"1ed760","LightText":"d0d0d0","DarkText":"949494","LightContrast":"181818","CursorOutline":"000000","DarkContrast":"121212","TextBorder":"000000","Inline":"292929"}]]},
+    Sublime = {13, [[{"Outline":"000000","Accent":"ff9800","LightText":"e8ffff","DarkText":"d3d3c2","LightContrast":"32332d","CursorOutline":"000000","DarkContrast":"282923","TextBorder":"000000","Inline":"484944"}]]},
+}
+
 -- UI Variables
 local library = {
     drawings = {},
@@ -34,6 +46,19 @@ local library = {
     colors = {},
     hovers = {},
     Relations = {},
+    configs = {},
+    themes = Themes,
+    configExtension = ".rosehook",
+    configFooter = "[ rosehook ]",
+    configListPointer = "ConfigConfiguration_Box",
+    ignoreConfigFlags = {
+        ["ConfigConfiguration_Box"] = true,
+        ["ConfigConfiguration_Name"] = true
+    },
+    locals = {
+        Shift = 0,
+        ShiftTick = 0
+    },
     folders = {
         main = "rosehook",
         assets = "rosehook/Images",
@@ -83,7 +108,6 @@ local utility = {
 local pages = {}
 local sections = {}
 -- Theme Variables
---local themes = {}
 local theme = {
     accent = Color3.fromRGB(55, 175, 225),
     lightcontrast = Color3.fromRGB(30, 30, 30),
@@ -97,6 +121,8 @@ local theme = {
     font = 2,
     textsize = 13
 }
+library.theme = theme
+library.themes = Themes
 -- // utility Functions
 do
     function utility:Size(xScale,xOffset,yScale,yOffset,instance)
@@ -563,12 +589,481 @@ do
             return "None"
         end
     end
+    --
+    function utility:GetTableIndexes(Table, Custom)
+        local Table2 = {}
+        for Index, Value in pairs(Table) do
+            Table2[Custom and (typeof(Value) == "table" and Value[1] or Index) or #Table2 + 1] = Index 
+        end
+        return Table2
+    end
+    --
+    function utility:ConvertTable(Table1)
+        local Table2 = {}
+        for Index, Value in pairs(Table1) do
+            Table2[typeof(Index) ~= "number" and Index or (#Table2 + 1)] = tostring(Value)
+        end
+        return Table2
+    end
+    --
+    function utility:ConvertString(Value)
+        if typeof(Value) == "Color3" then
+            Value = Value:ToHex()
+        end
+        return Value
+    end
+    --
+    function utility:Encode(Table)
+        local Table2 = {}
+        for Index, Value in pairs(Table) do
+            Table2[Index] = utility:ConvertString(Value)
+        end
+        return hs:JSONEncode(Table2)
+    end
+    --
+    function utility:Decode(Table)
+        if typeof(Table) == "table" then
+            return Table
+        end
+        local success, result = pcall(hs.JSONDecode, hs, Table)
+        return success and result or {}
+    end
+    --
+    function utility:Shift(Number)
+        return math.acos(math.cos(Number * math.pi)) / math.pi
+    end
 end
 -- // Library Functions
 do
     library.__index = library
 	pages.__index = pages
 	sections.__index = sections
+    --
+    function library:EnsureFolders()
+        if not isfolder(library.folders.main) then
+            pcall(makefolder, library.folders.main)
+        end
+        if not isfolder(library.folders.configs) then
+            pcall(makefolder, library.folders.configs)
+        end
+        if not isfolder(library.folders.assets) then
+            pcall(makefolder, library.folders.assets)
+        end
+    end
+    --
+    function library:ScanConfigs()
+        library:EnsureFolders()
+        library.configs = {}
+        if listfiles then
+            local success, files = pcall(listfiles, library.folders.configs)
+            if success and typeof(files) == "table" then
+                for _, filePath in pairs(files) do
+                    local fileName = filePath:match("([^\\/]+)$")
+                    if fileName then
+                        local baseName = fileName:match("([^\\/]+)%.[^\\/.]+$") or fileName
+                        if not Find(library.configs, baseName) then
+                            library.configs[#library.configs + 1] = baseName
+                        end
+                    end
+                end
+            end
+        end
+        return library.configs
+    end
+    --
+    function library:GetConfigs()
+        if #library.configs == 0 then
+            library:ScanConfigs()
+        end
+        return library.configs
+    end
+    --
+    function library:RefreshConfigList(pointerName)
+        library:ScanConfigs()
+        local boxName = pointerName or library.configListPointer or "ConfigConfiguration_Box"
+        local list = library.pointers[boxName]
+        if list and list.options then
+            list.options = library.configs
+            list.current = math.clamp(list.current or 0, 0, #library.configs)
+            if list.UpdateScroll then
+                list:UpdateScroll()
+            elseif list.Refresh then
+                list:Refresh()
+            end
+        end
+    end
+    --
+    function library:GetConfig(format)
+        if format and format:lower() == "json" then
+            local configTable = {}
+            for Index, Value in pairs(library.pointers) do
+                if not library.ignoreConfigFlags[Index] then
+                    local val = Value:Get()
+                    if typeof(val) == "Color3" then
+                        local Values = Value.current or {val:ToHSV()}
+                        configTable[Index] = {Type = "Color3", Values = Values}
+                    elseif typeof(val) == "table" and val.Color and val.Transparency then
+                        local Values = Value.current or {val.Color:ToHSV()}
+                        configTable[Index] = {Type = "Color3", Values = Values}
+                    elseif Value.mode then
+                        local Values = Value.current or {}
+                        configTable[Index] = {Type = "Keybind", Key = Values, Mode = Value.mode}
+                    else
+                        configTable[Index] = val
+                    end
+                end
+            end
+            return hs:JSONEncode(configTable)
+        end
+
+        local Config = ""
+        for Index, Value in pairs(library.pointers) do
+            if not library.ignoreConfigFlags[Index] then
+                local Value2 = Value:Get()
+                local Final = ""
+
+                if typeof(Value2) == "Color3" then
+                    local Values = Value.current
+                    if typeof(Values) == "table" then
+                        Final = ("rgb(%s,%s,%s,%s)"):format(Values[1] or 0, Values[2] or 0, Values[3] or 0, Values[4] or 0)
+                    else
+                        local h, s, v = Value2:ToHSV()
+                        Final = ("rgb(%s,%s,%s,%s)"):format(h, s, v, 0)
+                    end
+                elseif typeof(Value2) == "table" and Value2.Color and Value2.Transparency then
+                    local Values = Value.current
+                    if typeof(Values) == "table" then
+                        Final = ("rgb(%s,%s,%s,%s)"):format(Values[1] or 0, Values[2] or 0, Values[3] or 0, Values[4] or 0)
+                    else
+                        local h, s, v = Value2.Color:ToHSV()
+                        Final = ("rgb(%s,%s,%s,%s)"):format(h, s, v, Value2.Transparency)
+                    end
+                elseif Value.mode then
+                    local Values = Value.current
+                    local k1 = (typeof(Values) == "table" and Values[1]) or "nil"
+                    local k2 = (typeof(Values) == "table" and Values[2]) or "nil"
+                    Final = ("key(%s,%s,%s)"):format(k1 or "nil", k2 or "nil", Value.mode or "Toggle")
+                elseif (Value2 ~= nil) then
+                    if typeof(Value2) == "boolean" then
+                        Final = ("bool(%s)"):format(tostring(Value2))
+                    elseif typeof(Value2) == "table" then
+                        local New = "table("
+                        for Index2, Value3 in pairs(Value2) do
+                            New = New .. tostring(Value3) .. ","
+                        end
+                        if New:sub(#New) == "," then
+                            New = New:sub(1, #New - 1)
+                        end
+                        Final = New .. ")"
+                    elseif typeof(Value2) == "string" then
+                        Final = ("string(%s)"):format(Value2)
+                    elseif typeof(Value2) == "number" then
+                        Final = ("number(%s)"):format(Value2)
+                    end
+                end
+
+                if Final ~= "" then
+                    Config = Config .. Index .. ": " .. Final .. "\n"
+                end
+            end
+        end
+
+        return Config .. (library.configFooter or "[ rosehook ]")
+    end
+    --
+    function library:ParseConfig(ConfigData)
+        if typeof(ConfigData) == "table" then
+            return ConfigData
+        end
+        if typeof(ConfigData) ~= "string" then
+            return {}
+        end
+
+        if ConfigData:sub(1, 1) == "{" then
+            local s, res = pcall(hs.JSONDecode, hs, ConfigData)
+            if s and typeof(res) == "table" then
+                local converted = {}
+                for k, v in pairs(res) do
+                    if typeof(v) == "table" and v.Type == "Color3" and v.Values then
+                        converted[k] = v.Values
+                    elseif typeof(v) == "table" and v.Type == "Keybind" then
+                        converted[k] = {v.Key and v.Key[1], v.Key and v.Key[2], v.Mode}
+                    else
+                        converted[k] = v
+                    end
+                end
+                return converted
+            end
+        end
+
+        local Table = ConfigData:split("\n")
+        local Table2 = {}
+
+        if Table[#Table] and Table[#Table]:match("^%[.+%]$") then
+            Remove(Table, #Table)
+        end
+
+        for Index, Value in pairs(Table) do
+            local colonPos = Value:find(":")
+            if colonPos then
+                local FlagName = Value:sub(1, colonPos - 1):match("^%s*(.-)%s*$")
+                local RawVal = Value:sub(colonPos + 1):match("^%s*(.-)%s*$")
+
+                if not library.ignoreConfigFlags[FlagName] then
+                    local ParsedVal = RawVal
+
+                    if RawVal:sub(1, 3) == "rgb" then
+                        local inner = RawVal:sub(5, #RawVal - 1)
+                        local parts = inner:split(",")
+                        for i = 1, #parts do
+                            parts[i] = tonumber(parts[i]) or 0
+                        end
+                        if #parts < 4 then
+                            parts[4] = 0
+                        end
+                        ParsedVal = parts
+                    elseif RawVal:sub(1, 3) == "key" then
+                        local inner = RawVal:sub(5, #RawVal - 1)
+                        local parts = inner:split(",")
+                        if parts[1] == "nil" then parts[1] = nil end
+                        if parts[2] == "nil" then parts[2] = nil end
+                        ParsedVal = parts
+                    elseif RawVal:sub(1, 4) == "bool" then
+                        ParsedVal = (RawVal:sub(6, #RawVal - 1):lower() == "true")
+                    elseif RawVal:sub(1, 5) == "table" then
+                        local inner = RawVal:sub(7, #RawVal - 1)
+                        if inner == "" then
+                            ParsedVal = {}
+                        else
+                            ParsedVal = inner:split(",")
+                        end
+                    elseif RawVal:sub(1, 6) == "string" then
+                        ParsedVal = RawVal:sub(8, #RawVal - 1)
+                    elseif RawVal:sub(1, 6) == "number" then
+                        ParsedVal = tonumber(RawVal:sub(8, #RawVal - 1)) or 0
+                    end
+
+                    Table2[FlagName] = ParsedVal
+                end
+            end
+        end
+
+        return Table2
+    end
+    --
+    function library:LoadConfig(Config)
+        if typeof(Config) == "string" then
+            if Config:find("\n") or Config:find(":") or Config:sub(1, 1) == "{" then
+                Config = library:ParseConfig(Config)
+            else
+                return library:PerformConfigAction(Config, "Load")
+            end
+        end
+
+        if typeof(Config) == "table" then
+            for Index, Value in pairs(Config) do
+                if library.pointers[Index] and typeof(library.pointers[Index].Set) == "function" then
+                    pcall(function()
+                        library.pointers[Index]:Set(Value)
+                    end)
+                end
+            end
+        end
+    end
+    --
+    function library:SaveConfig(ConfigName, format)
+        return library:PerformConfigAction(ConfigName, "Save")
+    end
+    --
+    function library:DeleteConfig(ConfigName)
+        return library:PerformConfigAction(ConfigName, "Delete")
+    end
+    --
+    function library:PerformConfigAction(ConfigName, Action)
+        if not ConfigName or ConfigName == "" or ConfigName == " " then
+            if library.pointers["ConfigConfiguration_Name"] and library.pointers["ConfigConfiguration_Name"]:Get() ~= "" then
+                ConfigName = library.pointers["ConfigConfiguration_Name"]:Get()
+            elseif library.pointers["ConfigConfiguration_Box"] and library.pointers["ConfigConfiguration_Box"]:Get() then
+                ConfigName = library.pointers["ConfigConfiguration_Box"]:Get()
+            end
+        end
+        if not ConfigName or ConfigName == "" or ConfigName == " " then
+            return
+        end
+
+        library:EnsureFolders()
+        local folder = library.folders.configs
+        local ext = library.configExtension or ".rosehook"
+        if ext:sub(1, 1) ~= "." then
+            ext = "." .. ext
+        end
+
+        local function getFilePath(name)
+            if name:match("%.[%w_]+$") then
+                return folder .. "/" .. name
+            end
+            return folder .. "/" .. name .. ext
+        end
+
+        local function resolveExistingFile(name)
+            local direct = getFilePath(name)
+            if isfile(direct) then return direct end
+            if isfile(folder .. "/" .. name) then return folder .. "/" .. name end
+            if listfiles then
+                local s, files = pcall(listfiles, folder)
+                if s and typeof(files) == "table" then
+                    for _, f in pairs(files) do
+                        local fn = f:match("([^\\/]+)$")
+                        local bn = fn and (fn:match("([^\\/]+)%.[^\\/.]+$") or fn)
+                        if fn == name or bn == name then
+                            return f
+                        end
+                    end
+                end
+            end
+            return direct
+        end
+
+        if Action == "Delete" then
+            local foundIndex = Find(library.configs, ConfigName)
+            if foundIndex then
+                Remove(library.configs, foundIndex)
+                library:RefreshConfigList()
+            end
+            local filePath = resolveExistingFile(ConfigName)
+            if isfile(filePath) then
+                pcall(delfile or deletefile, filePath)
+            end
+        elseif Action == "Save" then
+            local configData = library:GetConfig()
+            if configData then
+                if not Find(library.configs, ConfigName) then
+                    library.configs[#library.configs + 1] = ConfigName
+                    library:RefreshConfigList()
+                end
+                local filePath = getFilePath(ConfigName)
+                pcall(writefile, filePath, configData)
+            end
+        elseif Action == "Load" then
+            local filePath = resolveExistingFile(ConfigName)
+            if isfile(filePath) then
+                local success, data = pcall(readfile, filePath)
+                if success and data then
+                    local parsed = library:ParseConfig(data)
+                    library:LoadConfig(parsed)
+                end
+            end
+        end
+    end
+    --
+    function library:UpdateColor(ColorType, ColorValue)
+        if not ColorType or not ColorValue then return end
+        local rawType = ColorType
+        local normType = ColorType:lower()
+
+        if normType == "lighttext" or normType == "text" then
+            normType = "textcolor"
+        elseif normType == "darktext" then
+            normType = "textdark"
+        elseif normType == "textoutline" then
+            normType = "textborder"
+        end
+
+        theme[normType] = ColorValue
+        if normType == "textcolor" then
+            theme.lighttext = ColorValue
+            theme.textcolor = ColorValue
+        elseif normType == "textdark" then
+            theme.darktext = ColorValue
+            theme.textdark = ColorValue
+        elseif normType == "textborder" then
+            theme.textoutline = ColorValue
+            theme.textborder = ColorValue
+        end
+
+        for drawing, propTable in pairs(library.colors) do
+            if typeof(propTable) == "table" then
+                for propName, colorKey in pairs(propTable) do
+                    if typeof(colorKey) == "string" and (colorKey:lower() == normType or colorKey:lower() == rawType:lower()) then
+                        pcall(function()
+                            drawing[propName] = ColorValue
+                        end)
+                    end
+                end
+            end
+        end
+    end
+    --
+    function library:UpdateTheme(ThemeType, ThemeValue)
+        if not ThemeType or not ThemeValue then return end
+        local normType = ThemeType:lower()
+
+        local flag = library.pointers["ConfigTheme_" .. ThemeType]
+            or (normType == "lighttext" and library.pointers["ConfigTheme_TextColor"])
+            or (normType == "textcolor" and library.pointers["ConfigTheme_LightText"])
+            or (normType == "darktext" and library.pointers["ConfigTheme_TextDark"])
+            or (normType == "textdark" and library.pointers["ConfigTheme_DarkText"])
+            or library.pointers["Theme_" .. ThemeType]
+            or library.pointers[ThemeType]
+
+        if flag and typeof(flag.Set) == "function" then
+            flag:Set(ThemeValue)
+        end
+        library:UpdateColor(ThemeType, ThemeValue)
+    end
+    --
+    function library:LoadTheme(ThemeType)
+        local themeData
+        if typeof(ThemeType) == "table" then
+            themeData = ThemeType[2] or ThemeType
+        elseif typeof(ThemeType) == "string" then
+            local entry = library.themes[ThemeType]
+            if entry then
+                themeData = entry[2] or entry[1] or entry
+            end
+        end
+
+        if typeof(themeData) == "string" then
+            themeData = utility:Decode(themeData)
+        end
+
+        if typeof(themeData) == "table" then
+            for Index, Value in pairs(themeData) do
+                local col = Value
+                if typeof(col) == "string" then
+                    local s, parsedCol = pcall(Color3.fromHex, col)
+                    if s and parsedCol then
+                        col = parsedCol
+                    end
+                end
+                if typeof(col) == "Color3" then
+                    library:UpdateTheme(Index, col)
+                end
+            end
+        end
+    end
+    --
+    function library:GetThemes()
+        return utility:GetTableIndexes(library.themes, true)
+    end
+    --
+    function library:SaveTheme(ThemeName)
+        local themeTbl = {
+            Outline = (theme.outline):ToHex(),
+            Accent = (theme.accent):ToHex(),
+            LightText = (theme.textcolor):ToHex(),
+            DarkText = (theme.textdark):ToHex(),
+            LightContrast = (theme.lightcontrast):ToHex(),
+            CursorOutline = (theme.cursoroutline):ToHex(),
+            DarkContrast = (theme.darkcontrast):ToHex(),
+            TextBorder = (theme.textborder):ToHex(),
+            Inline = (theme.inline):ToHex()
+        }
+        local idx = 1
+        for _ in pairs(library.themes) do idx = idx + 1 end
+        library.themes[ThemeName] = {idx, utility:Encode(themeTbl)}
+        return library.themes[ThemeName]
+    end
     --
     function library:Notification(info)
     end
@@ -1169,29 +1664,31 @@ do
             title.Text = Name
         end
         --
-        function window:GetConfig()
-            local config = {}
-            --
-            for i,v in pairs(library.pointers) do
-                if typeof(v:Get()) == "table" and v:Get().Transparency then
-                    local hue, sat, val = v:Get().Color:ToHSV()
-                    config[i] = {Color = {hue, sat, val}, Transparency = v:Get().Transparency}
-                else
-                    config[i] = v:Get()
-                end
-            end
-            --
-            return game:GetService("HttpService"):JSONEncode(config)
+        function window:GetConfig(format)
+            return library:GetConfig(format)
         end
         --
         function window:LoadConfig(config)
-            local config = hs:JSONDecode(config)
-            --
-            for i,v in pairs(config) do
-                if library.pointers[i] then
-                    library.pointers[i]:Set(v)
-                end
-            end
+            return library:LoadConfig(config)
+        end
+        --
+        function window:SaveConfig(name, format)
+            return library:SaveConfig(name, format)
+        end
+        --
+        function window:DeleteConfig(name)
+            return library:DeleteConfig(name)
+        end
+        --
+        function window:PerformConfigAction(name, action)
+            return library:PerformConfigAction(name, action)
+        end
+        --
+        function window:CreateConfigPage(info)
+            local info = info or {}
+            local page = self:Page({Name = info.Name or info.name or "Configs"})
+            page:CreateConfigSections(info)
+            return page
         end
         --
         function window:Move(vector)
@@ -3336,6 +3833,204 @@ do
         page.sectionOffset["right"] = page.sectionOffset["right"] + playerList_inline.Size.Y + 5
         page.sections[#page.sections + 1] = playerList
         return playerList
+    end
+    --
+    function pages:CreateConfigSections(info)
+        local info = info or {}
+        local page = self
+        local window = self.window
+
+        local Config_Menu = page:Section({Name = info.MenuName or "Menu"})
+        local Config_Configuration = page:Section({Name = info.ConfigurationName or "Configuration", Side = "Right"})
+        local Config_Theme = page:Section({Name = info.ThemeName or "Theme"})
+        local Config_Load = page:Section({Name = info.LoadName or "Load", Fill = true, Side = "Right"})
+        local Config_Extra = page:Section({Name = info.ExtraName or "Extra", Fill = true})
+
+        -- Menu Section
+        Config_Menu:Keybind({
+            Name = "Toggle",
+            Flag = "ConfigMenu_MenuToggle",
+            Default = Enum.KeyCode.RightControl,
+            KeybindName = "Menu Key",
+            Mode = "Toggle",
+            Callback = function(Input)
+                window.uibind = Input
+            end
+        })
+
+        Config_Menu:Toggle({
+            Name = "Custom Menu Name",
+            Flag = "ConfigMenu_CustomName",
+            Default = false,
+            Callback = function(State)
+                if State and library.pointers["ConfigMenu_Name"] and library.pointers["ConfigMenu_Name"]:Get() ~= "" then
+                    window:SetName(library.pointers["ConfigMenu_Name"]:Get())
+                else
+                    window:SetName(window.name or "rosehook")
+                end
+            end
+        })
+
+        Config_Menu:TextBox({
+            Flag = "ConfigMenu_Name",
+            Default = window.name or "rosehook",
+            Max = 50,
+            PlaceHolder = "Menu Name",
+            Callback = function(State)
+                if library.pointers["ConfigMenu_CustomName"] and library.pointers["ConfigMenu_CustomName"]:Get() then
+                    window:SetName(State)
+                end
+            end
+        })
+
+        -- Configuration Section
+        library:ScanConfigs()
+        Config_Configuration:List({
+            Flag = "ConfigConfiguration_Box",
+            Options = library.configs
+        })
+
+        Config_Configuration:TextBox({
+            Flag = "ConfigConfiguration_Name",
+            Name = "Config Name",
+            Default = "",
+            Max = 20,
+            PlaceHolder = "Config Name"
+        })
+
+        Config_Configuration:ButtonHolder({
+            Buttons = {
+                {"Create", function()
+                    local name = library.pointers["ConfigConfiguration_Name"] and library.pointers["ConfigConfiguration_Name"]:Get()
+                    if name and name ~= "" then
+                        library:PerformConfigAction(name, "Save")
+                    end
+                end},
+                {"Delete", function()
+                    local selected = library.pointers["ConfigConfiguration_Box"] and library.pointers["ConfigConfiguration_Box"]:Get()
+                    if selected then
+                        library:PerformConfigAction(selected, "Delete")
+                    end
+                end}
+            }
+        })
+
+        Config_Configuration:ButtonHolder({
+            Buttons = {
+                {"Load", function()
+                    local selected = library.pointers["ConfigConfiguration_Box"] and library.pointers["ConfigConfiguration_Box"]:Get()
+                    if selected then
+                        library:PerformConfigAction(selected, "Load")
+                    end
+                end},
+                {"Save", function()
+                    local selected = library.pointers["ConfigConfiguration_Box"] and library.pointers["ConfigConfiguration_Box"]:Get()
+                    if selected then
+                        library:PerformConfigAction(selected, "Save")
+                    end
+                end}
+            }
+        })
+
+        if info.Unload or info.UnloadCallback or window.Unload then
+            Config_Configuration:Button({
+                Name = "Unload",
+                Callback = info.UnloadCallback or function()
+                    window:Unload()
+                end
+            })
+        end
+
+        -- Theme Section
+        local themeNames = utility:GetTableIndexes(library.themes, true)
+        Config_Theme:Dropdown({
+            Name = "Theme",
+            Flag = "ConfigTheme_Theme",
+            Default = "Default",
+            Max = 8,
+            Options = themeNames
+        })
+
+        Config_Theme:Button({
+            Name = "Load",
+            Callback = function()
+                if library.pointers["ConfigTheme_Theme"] then
+                    library:LoadTheme(library.pointers["ConfigTheme_Theme"]:Get())
+                end
+            end
+        })
+
+        Config_Theme:Colorpicker({Name = "Accent", Flag = "ConfigTheme_Accent", Default = theme.accent, Callback = function(Color) library:UpdateColor("Accent", Color) end})
+        Config_Theme:Colorpicker({Name = "Light Contrast", Flag = "ConfigTheme_LightContrast", Default = theme.lightcontrast, Callback = function(Color) library:UpdateColor("LightContrast", Color) end})
+        Config_Theme:Colorpicker({Name = "Dark Contrast", Flag = "ConfigTheme_DarkContrast", Default = theme.darkcontrast, Callback = function(Color) library:UpdateColor("DarkContrast", Color) end})
+        Config_Theme:Colorpicker({Name = "Outline", Flag = "ConfigTheme_Outline", Default = theme.outline, Callback = function(Color) library:UpdateColor("Outline", Color) end})
+        Config_Theme:Colorpicker({Name = "Inline", Flag = "ConfigTheme_Inline", Default = theme.inline, Callback = function(Color) library:UpdateColor("Inline", Color) end})
+        Config_Theme:Colorpicker({Name = "Light Text", Flag = "ConfigTheme_LightText", Default = theme.textcolor, Callback = function(Color) library:UpdateColor("TextColor", Color) end})
+        Config_Theme:Colorpicker({Name = "Dark Text", Flag = "ConfigTheme_DarkText", Default = theme.textdark, Callback = function(Color) library:UpdateColor("TextDark", Color) end})
+        Config_Theme:Colorpicker({Name = "Text Outline", Flag = "ConfigTheme_TextBorder", Default = theme.textborder, Callback = function(Color) library:UpdateColor("TextBorder", Color) end})
+        Config_Theme:Colorpicker({Name = "Cursor Outline", Flag = "ConfigTheme_CursorOutline", Default = theme.cursoroutline, Callback = function(Color) library:UpdateColor("CursorOutline", Color) end})
+
+        Config_Theme:Dropdown({
+            Name = "Accent Effect",
+            Flag = "ConfigTheme_AccentEffect",
+            Default = "None",
+            Options = {"None", "Rainbow", "Shift", "Reverse Shift"},
+            Callback = function(State)
+                if State == "None" and library.pointers["ConfigTheme_Accent"] then
+                    library:UpdateColor("Accent", library.pointers["ConfigTheme_Accent"]:Get())
+                end
+            end
+        })
+
+        Config_Theme:Slider({
+            Name = "Effect Length",
+            Flag = "ConfigTheme_EffectLength",
+            Default = 40,
+            Maximum = 360,
+            Minimum = 1,
+            Decimals = 1
+        })
+
+        -- Load Section
+        Config_Load:Toggle({Name = "Show Menu", Flag = "ConfigLoad_ShowMenu", Default = true})
+        Config_Load:Toggle({Name = "Auto Load Config", Flag = "ConfigLoad_AutoLoad", Default = false})
+
+        -- Extra Section
+        Config_Extra:Toggle({
+            Name = "Show Watermark",
+            Flag = "ConfigExtra_Watermark",
+            Callback = function(State)
+                if window.watermark then
+                    window.watermark:Update("Visible", State)
+                end
+            end
+        })
+        Config_Extra:Toggle({
+            Name = "Show Keybinds",
+            Flag = "ConfigExtra_KBList",
+            Callback = function(State)
+                if window.keybindslist then
+                    window.keybindslist:Update("Visible", State)
+                end
+            end
+        })
+        Config_Extra:Toggle({
+            Name = "Show Statuses",
+            Flag = "ConfigExtra_StatusList",
+            Callback = function(State)
+                if window.statuslist then
+                    window.statuslist:Update("Visible", State)
+                end
+            end
+        })
+
+        return {
+            Menu = Config_Menu,
+            Configuration = Config_Configuration,
+            Theme = Config_Theme,
+            Load = Config_Load,
+            Extra = Config_Extra
+        }
     end
     --
     function sections:Label(info)
@@ -7066,4 +7761,9 @@ do
         return list
     end
 end
+
+pcall(function()
+    library:ScanConfigs()
+end)
+
 return library, utility, library.pointers, theme
