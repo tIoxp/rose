@@ -35,9 +35,9 @@ local library = {
     hovers = {},
     Relations = {},
     folders = {
-        main = "Atlanta",
-        assets = "Atlanta/Images",
-        configs = "Atlanta/Configs"
+        main = "rosehook",
+        assets = "rosehook/Images",
+        configs = "rosehook/Configs"
     },
     shared = {
         initialized = false,
@@ -780,7 +780,7 @@ do
             return window.isVisible and utility:MouseOverDrawing({main_frame.Position.X, main_frame.Position.Y, main_frame.Position.X + main_frame.Size.X, main_frame.Position.Y + main_frame.Size.Y})
         end
         --
-        local BlockClicksAction = "AtlantaBlockClicks" .. tostring(window)
+        local BlockClicksAction = "RosehookBlockClicks" .. tostring(window)
         cas:BindActionAtPriority(BlockClicksAction, function(_, InputState)
             if window:IsOverUI() then
                 return Enum.ContextActionResult.Sink
@@ -1289,7 +1289,7 @@ do
             return window.isVisible and utility:MouseOverDrawing({main_frame.Position.X, main_frame.Position.Y, main_frame.Position.X + main_frame.Size.X, main_frame.Position.Y + main_frame.Size.Y})
         end
         --
-        local BlockClicksAction = "AtlantaBlockClicks" .. tostring(window)
+        local BlockClicksAction = "RosehookBlockClicks" .. tostring(window)
         cas:BindActionAtPriority(BlockClicksAction, function(_, InputState)
             if window:IsOverUI() then
                 return Enum.ContextActionResult.Sink
@@ -3319,7 +3319,7 @@ do
             end
         end
         --
-        local PlayerListScrollAction = "AtlantaPlayerListScroll" .. tostring(playerList)
+        local PlayerListScrollAction = "RosehookPlayerListScroll" .. tostring(playerList)
         cas:BindActionAtPriority(PlayerListScrollAction, function(_, InputState, Input)
             if InputState == Enum.UserInputState.Change and page.open and utility:MouseOverDrawing({list_frame.Position.X, list_frame.Position.Y, list_frame.Position.X + list_frame.Size.X, list_frame.Position.Y + list_frame.Size.Y}) and not window:IsOverContent() then
                 playerList.scrollingindex = math.clamp(playerList.scrollingindex - math.sign(Input.Position.Z), 0, math.max(#playerList.players - 10, 0))
@@ -4936,7 +4936,7 @@ do
         local section = self
         --
         local dropdown = {open = false, scrollindex = max and 0, scrolling = max and {false, nil}, current = tostring(def), options = options, holder = {buttons = {}, drawings = {}}, axis = section.currentAxis}
-        local DropdownAction = "AtlantaDropdown" .. tostring(dropdown)
+        local DropdownAction = "RosehookDropdown" .. tostring(dropdown)
         if max then
             cas:BindActionAtPriority(DropdownAction, function(_, InputState, Input)
                 if InputState == Enum.UserInputState.Change and dropdown.open and dropdown.holder.inline and utility:MouseOverDrawing({dropdown.holder.inline.Position.X, dropdown.holder.inline.Position.Y, dropdown.holder.inline.Position.X + dropdown.holder.inline.Size.X, dropdown.holder.inline.Position.Y + dropdown.holder.inline.Size.Y}) then
@@ -7044,7 +7044,7 @@ do
             end
         end
         --
-        local ListScrollAction = "AtlantaListScroll" .. tostring(list)
+        local ListScrollAction = "RosehookListScroll" .. tostring(list)
         cas:BindActionAtPriority(ListScrollAction, function(_, InputState, Input)
             if InputState == Enum.UserInputState.Change and page.open and utility:MouseOverDrawing({section.section_frame.Position.X, section.section_frame.Position.Y + list.axis, section.section_frame.Position.X + section.section_frame.Size.X, section.section_frame.Position.Y + list.axis + ((list.max * 20) + 4)}) and not window:IsOverContent() then
                 list.scrollingindex = math.clamp(list.scrollingindex - math.sign(Input.Position.Z), 0, math.max(#list.options - list.max, 0))
