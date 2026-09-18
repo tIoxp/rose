@@ -71,7 +71,7 @@ do
 
     function Utility:WorldToScreen(WorldPosition)
         local ScreenPosition, OnScreen = Camera:WorldToViewportPoint(WorldPosition)
-        return Vector2.new(ScreenPosition.X, ScreenPosition.Y), OnScreen
+        return Vector2.new(ScreenPosition.X, ScreenPosition.Y), OnScreen, ScreenPosition.Z
     end
 
     function Utility:GetPerformanceStats()
