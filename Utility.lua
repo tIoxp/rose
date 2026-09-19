@@ -70,8 +70,8 @@ do
     end
 
     function Utility:WorldToScreen(WorldPosition)
-        local ScreenPosition, OnScreen = Camera:WorldToViewportPoint(WorldPosition)
-        return Vector2.new(ScreenPosition.X, ScreenPosition.Y), OnScreen
+        local ScreenPosition, OnScreen, Z = Camera:WorldToViewportPoint(WorldPosition)
+        return Vector2.new(ScreenPosition.X, ScreenPosition.Y), OnScreen, Z
     end
 
     function Utility:FindUpvalue(Function, UpvalueName)
