@@ -23,14 +23,14 @@ local Unpack = table.unpack
 local Find = table.find
 --
 local Themes = {
-    Default = {1, [[{"Outline":"000000","Accent":"5d3e98","LightText":"ffffff","DarkText":"afafaf","LightContrast":"1e1e1e","CursorOutline":"0a0a0a","DarkContrast":"141414","TextBorder":"000000","Inline":"323232"}]]},
-    Neverlose = {4, [[{"Outline":"000005","Accent":"00b4f0","LightText":"ffffff","DarkText":"afafaf","LightContrast":"000f1e","CursorOutline":"0f0f28","DarkContrast":"050514","TextBorder":"0a0a0a","Inline":"0a1e28"}]]},
-    Onetap = {8, [[{"Outline":"000000","Accent":"dda85d","LightText":"d6d9e0","DarkText":"afafaf","LightContrast":"2c3037","CursorOutline":"000000","DarkContrast":"1f2125","TextBorder":"000000","Inline":"4e5158"}]]},
-    Entropy = {9, [[{"Outline":"0a0a0a","Accent":"81bbe9","LightText":"dcdcdc","DarkText":"afafaf","LightContrast":"3d3a43","CursorOutline":"000000","DarkContrast":"302f37","TextBorder":"000000","Inline":"4c4a52"}]]},
-    Interwebz = {10, [[{"Outline":"1a1a1a","Accent":"c9654b","LightText":"fcfcfc","DarkText":"a8a8a8","LightContrast":"291f38","CursorOutline":"1a1a1a","DarkContrast":"1f162b","TextBorder":"000000","Inline":"40364f"}]]},
-    Dracula = {11, [[{"Outline":"202126","Accent":"9a81b3","LightText":"b4b4b8","DarkText":"88888b","LightContrast":"2a2c38","CursorOutline":"202126","DarkContrast":"252730","TextBorder":"2a2c38","Inline":"3c384d"}]]},
-    Spotify = {12, [[{"Outline":"0a0a0a","Accent":"1ed760","LightText":"d0d0d0","DarkText":"949494","LightContrast":"181818","CursorOutline":"000000","DarkContrast":"121212","TextBorder":"000000","Inline":"292929"}]]},
-    Sublime = {13, [[{"Outline":"000000","Accent":"ff9800","LightText":"e8ffff","DarkText":"d3d3c2","LightContrast":"32332d","CursorOutline":"000000","DarkContrast":"282923","TextBorder":"000000","Inline":"484944"}]]},
+    Default = {1, [[{"Outline":"000000","Accent":"#37AFE1","LightText":"ffffff","DarkText":"afafaf","LightContrast":"1e1e1e","CursorOutline":"0a0a0a","DarkContrast":"141414","TextBorder":"000000","Inline":"323232"}]]},
+    Neverlose = {2, [[{"Outline":"000005","Accent":"00b4f0","LightText":"ffffff","DarkText":"afafaf","LightContrast":"000f1e","CursorOutline":"0f0f28","DarkContrast":"050514","TextBorder":"0a0a0a","Inline":"0a1e28"}]]},
+    Onetap = {3, [[{"Outline":"000000","Accent":"dda85d","LightText":"d6d9e0","DarkText":"afafaf","LightContrast":"2c3037","CursorOutline":"000000","DarkContrast":"1f2125","TextBorder":"000000","Inline":"4e5158"}]]},
+    Entropy = {4, [[{"Outline":"0a0a0a","Accent":"81bbe9","LightText":"dcdcdc","DarkText":"afafaf","LightContrast":"3d3a43","CursorOutline":"000000","DarkContrast":"302f37","TextBorder":"000000","Inline":"4c4a52"}]]},
+    Interwebz = {5, [[{"Outline":"1a1a1a","Accent":"c9654b","LightText":"fcfcfc","DarkText":"a8a8a8","LightContrast":"291f38","CursorOutline":"1a1a1a","DarkContrast":"1f162b","TextBorder":"000000","Inline":"40364f"}]]},
+    Dracula = {6, [[{"Outline":"202126","Accent":"9a81b3","LightText":"b4b4b8","DarkText":"88888b","LightContrast":"2a2c38","CursorOutline":"202126","DarkContrast":"252730","TextBorder":"2a2c38","Inline":"3c384d"}]]},
+    Spotify = {7, [[{"Outline":"0a0a0a","Accent":"1ed760","LightText":"d0d0d0","DarkText":"949494","LightContrast":"181818","CursorOutline":"000000","DarkContrast":"121212","TextBorder":"000000","Inline":"292929"}]]},
+    Sublime = {8, [[{"Outline":"000000","Accent":"ff9800","LightText":"e8ffff","DarkText":"d3d3c2","LightContrast":"32332d","CursorOutline":"000000","DarkContrast":"282923","TextBorder":"000000","Inline":"484944"}]]},
 }
 
 -- UI Variables
@@ -3843,14 +3843,12 @@ do
         local Config_Menu = page:Section({Name = info.MenuName or "Menu"})
         local Config_Configuration = page:Section({Name = info.ConfigurationName or "Configuration", Side = "Right"})
         local Config_Theme = page:Section({Name = info.ThemeName or "Theme"})
-        local Config_Load = page:Section({Name = info.LoadName or "Load", Fill = true, Side = "Right"})
-        local Config_Extra = page:Section({Name = info.ExtraName or "Extra", Fill = true})
 
         -- Menu Section
         Config_Menu:Keybind({
             Name = "Toggle",
             Flag = "ConfigMenu_MenuToggle",
-            Default = Enum.KeyCode.RightControl,
+            Default = Enum.KeyCode.End,
             KeybindName = "Menu Key",
             Mode = "Toggle",
             Callback = function(Input)
@@ -3858,30 +3856,34 @@ do
             end
         })
 
+
         Config_Menu:Toggle({
-            Name = "Custom Menu Name",
-            Flag = "ConfigMenu_CustomName",
-            Default = false,
+            Name = "Show Watermark",
+            Flag = "ConfigExtra_Watermark",
             Callback = function(State)
-                if State and library.pointers["ConfigMenu_Name"] and library.pointers["ConfigMenu_Name"]:Get() ~= "" then
-                    window:SetName(library.pointers["ConfigMenu_Name"]:Get())
-                else
-                    window:SetName(window.name or "rosehook")
+                if window.watermark then
+                    window.watermark:Update("Visible", State)
+                end
+            end
+        })
+        Config_Menu:Toggle({
+            Name = "Show Keybinds",
+            Flag = "ConfigExtra_KBList",
+            Callback = function(State)
+                if window.keybindslist then
+                    window.keybindslist:Update("Visible", State)
                 end
             end
         })
 
-        Config_Menu:TextBox({
-            Flag = "ConfigMenu_Name",
-            Default = window.name or "rosehook",
-            Max = 50,
-            PlaceHolder = "Menu Name",
-            Callback = function(State)
-                if library.pointers["ConfigMenu_CustomName"] and library.pointers["ConfigMenu_CustomName"]:Get() then
-                    window:SetName(State)
+        if info.Unload or info.UnloadCallback or window.Unload then
+            Config_Menu:Button({
+                Name = "Unload",
+                Callback = info.UnloadCallback or function()
+                    window:Unload()
                 end
-            end
-        })
+            })
+        end
 
         -- Configuration Section
         library:ScanConfigs()
@@ -3932,14 +3934,6 @@ do
             }
         })
 
-        if info.Unload or info.UnloadCallback or window.Unload then
-            Config_Configuration:Button({
-                Name = "Unload",
-                Callback = info.UnloadCallback or function()
-                    window:Unload()
-                end
-            })
-        end
 
         -- Theme Section
         local themeNames = utility:GetTableIndexes(library.themes, true)
@@ -3948,17 +3942,14 @@ do
             Flag = "ConfigTheme_Theme",
             Default = "Default",
             Max = 8,
-            Options = themeNames
-        })
-
-        Config_Theme:Button({
-            Name = "Load",
-            Callback = function()
-                if library.pointers["ConfigTheme_Theme"] then
-                    library:LoadTheme(library.pointers["ConfigTheme_Theme"]:Get())
+            Options = themeNames,
+            Callback = function(Value)
+                if Value then
+                    library:LoadTheme(Value)
                 end
             end
         })
+
 
         Config_Theme:Colorpicker({Name = "Accent", Flag = "ConfigTheme_Accent", Default = theme.accent, Callback = function(Color) library:UpdateColor("Accent", Color) end})
         Config_Theme:Colorpicker({Name = "Light Contrast", Flag = "ConfigTheme_LightContrast", Default = theme.lightcontrast, Callback = function(Color) library:UpdateColor("LightContrast", Color) end})
@@ -3970,66 +3961,10 @@ do
         Config_Theme:Colorpicker({Name = "Text Outline", Flag = "ConfigTheme_TextBorder", Default = theme.textborder, Callback = function(Color) library:UpdateColor("TextBorder", Color) end})
         Config_Theme:Colorpicker({Name = "Cursor Outline", Flag = "ConfigTheme_CursorOutline", Default = theme.cursoroutline, Callback = function(Color) library:UpdateColor("CursorOutline", Color) end})
 
-        Config_Theme:Dropdown({
-            Name = "Accent Effect",
-            Flag = "ConfigTheme_AccentEffect",
-            Default = "None",
-            Options = {"None", "Rainbow", "Shift", "Reverse Shift"},
-            Callback = function(State)
-                if State == "None" and library.pointers["ConfigTheme_Accent"] then
-                    library:UpdateColor("Accent", library.pointers["ConfigTheme_Accent"]:Get())
-                end
-            end
-        })
-
-        Config_Theme:Slider({
-            Name = "Effect Length",
-            Flag = "ConfigTheme_EffectLength",
-            Default = 40,
-            Maximum = 360,
-            Minimum = 1,
-            Decimals = 1
-        })
-
-        -- Load Section
-        Config_Load:Toggle({Name = "Show Menu", Flag = "ConfigLoad_ShowMenu", Default = true})
-        Config_Load:Toggle({Name = "Auto Load Config", Flag = "ConfigLoad_AutoLoad", Default = false})
-
-        -- Extra Section
-        Config_Extra:Toggle({
-            Name = "Show Watermark",
-            Flag = "ConfigExtra_Watermark",
-            Callback = function(State)
-                if window.watermark then
-                    window.watermark:Update("Visible", State)
-                end
-            end
-        })
-        Config_Extra:Toggle({
-            Name = "Show Keybinds",
-            Flag = "ConfigExtra_KBList",
-            Callback = function(State)
-                if window.keybindslist then
-                    window.keybindslist:Update("Visible", State)
-                end
-            end
-        })
-        Config_Extra:Toggle({
-            Name = "Show Statuses",
-            Flag = "ConfigExtra_StatusList",
-            Callback = function(State)
-                if window.statuslist then
-                    window.statuslist:Update("Visible", State)
-                end
-            end
-        })
-
         return {
             Menu = Config_Menu,
             Configuration = Config_Configuration,
             Theme = Config_Theme,
-            Load = Config_Load,
-            Extra = Config_Extra
         }
     end
     --
@@ -7765,6 +7700,5 @@ end
 pcall(function()
     library:ScanConfigs()
 end)
-
 
 return library, utility, library.pointers, theme
