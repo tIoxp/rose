@@ -35,7 +35,7 @@ do
             DrawingObject[Propety] = Value
         end
 
-        table.insert(self.DrawingObjects, DrawingObject)
+        self.DrawingObjects[#self.DrawingObjects + 1] = DrawingObject
 
         return DrawingObject
     end
@@ -43,7 +43,7 @@ do
     function Utility:Connect(Connection, Callback)
         local ConnectionObject = Connection:Connect(Callback)
 
-        table.insert(self.Connections, ConnectionObject)
+        self.Connections[#self.Connections + 1] = Connection
 
         return ConnectionObject
     end     
@@ -71,7 +71,45 @@ do
 
     function Utility:WorldToScreen(WorldPosition)
         local ScreenPosition, OnScreen = Camera:WorldToViewportPoint(WorldPosition)
-        return Vector2.new(ScreenPosition.X, ScreenPosition.Y), OnScreen, ScreenPosition.Z
+        return Vector2.new(ScreenPosition.X, ScreenPosition.Y), OnScreen
+    end
+
+    function Utility:FindUpvalue(Function, UpvalueName)
+        assert(typeof(Function) == 'function', 'Not a function')
+
+        local Upvalues = getupvalues(Function) 
+        assert(#Upvalues == 0, 'Function has no upvalues')
+        
+        for Index, Upvalue in Upvalues do
+            if typeof(Upvalue) == 'function' then
+                local Name = debug.getinfo(Upvalue, 'n')
+                if Name ~= UpvalueName then continue end
+
+                if Name == UpvalueName then
+                    return Upvalue
+                end
+            end
+        end
+        
+        return nil
+    end
+
+    function Utility:FindProto(Function, ProtoName)
+        assert(typeof(Function) == 'function', 'Not a function')
+
+        local Protos = getprotos(Function)
+        assert(#Protos == 0, 'Function has no protos')
+    
+        for Index, Proto in Protos do
+            local Name = debug.getinfo(Proto)
+            if Name ~= ProtoName then continue end
+
+            if Name == ProtoName then
+                return Protos
+            end
+        end
+        
+        return nil
     end
 
     function Utility:GetPerformanceStats()
