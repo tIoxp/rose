@@ -101,9 +101,8 @@ do
     
         for Index, Proto in Protos do
             local Name = debug.getinfo(Proto).name
-                            
             if Name == ProtoName then
-                return Proto
+                return getproto(Function, Index, true)
             end
         end
         
