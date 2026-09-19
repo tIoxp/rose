@@ -77,13 +77,12 @@ do
     function Utility:FindUpvalue(Function, UpvalueName)
         assert(typeof(Function) == 'function', 'Not a function')
 
-        local Upvalues = getupvalues(Function) 
-        assert(#Upvalues == 0, 'Function has no upvalues')
+        local Upvalues = getupvalues(Function)
+        assert(#Upvalues > 0, 'Function has no upvalues')
         
         for Index, Upvalue in Upvalues do
             if typeof(Upvalue) == 'function' then
-                local Name = debug.getinfo(Upvalue, 'n')
-                if Name ~= UpvalueName then continue end
+                local Name = debug.getinfo(Upvalue).name
 
                 if Name == UpvalueName then
                     return Upvalue
@@ -98,14 +97,13 @@ do
         assert(typeof(Function) == 'function', 'Not a function')
 
         local Protos = getprotos(Function)
-        assert(#Protos == 0, 'Function has no protos')
+        assert(#Protos > 0, 'Function has no protos')
     
         for Index, Proto in Protos do
-            local Name = debug.getinfo(Proto)
-            if Name ~= ProtoName then continue end
-
+            local Name = debug.getinfo(Proto).name
+                            
             if Name == ProtoName then
-                return Protos
+                return Proto
             end
         end
         
