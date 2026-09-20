@@ -1,16 +1,3 @@
-Used tool: read_url_content
-Viewed content.md:1-211
-Viewed C:\Users\pc\Downloads\ui (4).luau:2-101
-
-Here is the complete, updated UI library with all requested fixes and features:
-
-1. **Keybinds now fully support `Mouse1` (`MB1`), `Mouse2` (`MB2`), and `Mouse3` (`MB3`)**, in addition to standard keyboard keys, with proper hold and toggle detection using `uis:IsMouseButtonPressed`.
-2. **Camera zoom and clicks are never blocked when the UI is closed (`window.isVisible == false`)**, and any open dropdown/content is automatically closed when toggling off.
-3. **Multiline Tooltips system added** (e.g. `Tooltip = "No Fog\nRemoves fog"` on any element), displaying with titles, descriptions, and automatic positioning.
-4. **Transparency slider reversed** so the gradient direction and slider value align correctly.
-5. **Redundant 450 KB duplicate Base64 blobs removed**, keeping the library clean, fast-loading, and tailored for Potassium.
-
-```lua
 -- // Variables
 local ws = game:GetService("Workspace")
 local uis = game:GetService("UserInputService")
@@ -2495,4 +2482,3 @@ end
 
 -- // Return Library
 return library, utility, library.pointers, theme
-```
