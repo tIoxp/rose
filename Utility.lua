@@ -1,6 +1,7 @@
 Utility = {
-    Connections = {},
-    DrawingObjects = {}
+    Connections = { },
+    Instances = { }, 
+    DrawingObjects = { },
 }
 
 local Camera = workspace.CurrentCamera
@@ -29,10 +30,12 @@ do
 
     function Utility:New(Class, Properties)
         local InstanceObject = Instance.new(Class)
-        
+
         for Propety, Value in Properties do
             InstanceObject[Propety] = Value
         end
+
+        self.Instances[#self.Instances + 1] = InstanceObject
 
         return InstanceObject
     end
