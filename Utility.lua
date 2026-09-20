@@ -27,6 +27,15 @@ do
         end
     end
 
+    function Utility:New(Class, Properties)
+        local InstanceObject = Instance.new(Class)
+        
+        for Propety, Value in Properties do
+            InstanceObject[Propety] = Value
+        end
+
+        return InstanceObject
+    end
 
     function Utility:Draw(Class, Properties)
         local DrawingObject = Drawing.new(Class)
