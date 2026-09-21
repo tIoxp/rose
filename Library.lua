@@ -3866,6 +3866,17 @@ do
                 end
             end
         })
+
+        Config_Menu:Slider({
+            Name = "Update Time",
+            Flag = "ConfigExtra_WatermarkRefresh",
+            Suffix = 's',
+            Def = 1,
+            Min = 0,
+            Max = 1,
+            Decimals = 0.1,
+        })
+
         Config_Menu:Toggle({
             Name = "Show Keybinds",
             Flag = "ConfigExtra_KBList",
