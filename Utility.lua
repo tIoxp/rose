@@ -1,7 +1,6 @@
 Utility = {
+    Instances = { },
     Connections = { },
-    Instances = { }, 
-    DrawingObjects = { },
 }
 
 local Camera = workspace.CurrentCamera
@@ -40,22 +39,10 @@ do
         return InstanceObject
     end
 
-    function Utility:Draw(Class, Properties)
-        local DrawingObject = Drawing.new(Class)
-        
-        for Propety, Value in Properties do
-            DrawingObject[Propety] = Value
-        end
-
-        self.DrawingObjects[#self.DrawingObjects + 1] = DrawingObject
-
-        return DrawingObject
-    end
-
     function Utility:Connect(Connection, Callback)
         local ConnectionObject = Connection:Connect(Callback)
 
-        self.Connections[#self.Connections + 1] = Connection
+        self.Connections[#self.Connections + 1] = ConnectionObject
 
         return ConnectionObject
     end     
@@ -130,7 +117,25 @@ do
 
         return StatsTable
     end
+
+
+    function Utility:CleanUp()
+        for _, Connection in self.Connections do
+            if Connection and Connection.Connected then
+                Connection:Disconnect()
+            end
+        end
+
+        for _, InstanceObject in self.Instances do
+            if InstanceObject then
+                InstanceObject:Destroy()
+            end
+        end
+
+        table.clear(self.Connections)
+        table.clear(self.Instances)
+        table.clear(self.DrawingObjects)
+    end
 end
 
-getgenv().Utility = Utility
 return Utility
