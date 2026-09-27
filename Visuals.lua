@@ -76,14 +76,14 @@ do
     end 
 
     function Visuals:CreateBox(Properties)
-        local Box = self:New('Frame', {
+        local Box = Create:New('Frame', {
             BackgroundTransparency = 1,
             BorderSizePixel = 0,
             Visible = false,
             Parent = self.Holder
         })
 
-        local Stroke = self:New('UIStroke', {
+        local Stroke = Create:New('UIStroke', {
             Thickness = 1,
             LineJoinMode = Enum.LineJoinMode.Miter,
             Color = Color3.new(1, 1, 1),
