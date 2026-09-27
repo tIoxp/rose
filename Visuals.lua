@@ -1,4 +1,4 @@
-local Visuals = { Objects = { }, Cache = { } }
+local Visuals = { DrawingObjects = { }, Objects = { }, Cache = { } }
 
 do
     function Visuals:Create(Class, Properties)
@@ -6,6 +6,13 @@ do
         for Key, Value in Properties do Instance[Key] = Value end
         table.insert(self.Objects, Instance)
         return Instance
+    end
+
+    function Visuals:Draw(Class, Properties)
+        local DrawingObject = Drawing.new(Class)
+        for Propety, Value in Properties do DrawingObject[Propety] = Value end
+        table.insert(self.DrawingObjects, DrawingObject)
+        return DrawingObject
     end
 
     Visuals.Screen = Visuals:Create('ScreenGui', {
@@ -76,14 +83,14 @@ do
     end 
 
     function Visuals:CreateBox(Properties)
-        local Box = self:Create('Frame', {
+        local Box = self:New('Frame', {
             BackgroundTransparency = 1,
             BorderSizePixel = 0,
             Visible = false,
             Parent = self.Holder
         })
 
-        local Stroke = self:Create('UIStroke', {
+        local Stroke = self:New('UIStroke', {
             Thickness = 1,
             LineJoinMode = Enum.LineJoinMode.Miter,
             Color = Color3.new(1, 1, 1),
@@ -123,6 +130,8 @@ do
         table.clear(self.Objects)
         table.clear(self.Cache)
     end
+
 end
 
 return Visuals
+
