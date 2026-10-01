@@ -46,6 +46,9 @@ local library = {
     colors = {},
     hovers = {},
     Relations = {},
+    Actions = {},
+    Notifications = {},
+    Loading = false,
     configs = {},
     themes = Themes,
     configExtension = ".rosehook",
@@ -424,6 +427,19 @@ do
                 v:Disconnect()
             end
         end
+    end
+    --
+    function utility:BindAction(Name, Callback, ...)
+        cas:BindActionAtPriority(Name, Callback, false, 3000, ...)
+        library.Actions[#library.Actions + 1] = Name
+    end
+    --
+    function utility:UnbindActions()
+        for Index, Name in pairs(library.Actions) do
+            pcall(cas.UnbindAction, cas, Name)
+        end
+        pcall(cas.UnbindAction, cas, "DisableKeyboard")
+        library.Actions = {}
     end
     --
     function utility:MouseLocation()
@@ -1047,6 +1063,92 @@ do
         return utility:GetTableIndexes(library.themes, true)
     end
     --
+    function library:CreateTooltip(window)
+        window.Tooltips = window.Tooltips or {}
+        --
+        local Tooltip = {Hover = nil, Since = 0, Shown = false}
+        --
+        local Outline = utility:Create("Frame", {Vector2.new(0, 0)}, {Size = Vector2.new(10, 10), Color = theme.outline, ZIndex = 75, Visible = false, Hidden = true})
+        library.colors[Outline] = {Color = "outline"}
+        --
+        local Inline = utility:Create("Frame", {Vector2.new(0, 0)}, {Size = Vector2.new(10, 10), Color = theme.inline, ZIndex = 76, Visible = false, Hidden = true})
+        library.colors[Inline] = {Color = "inline"}
+        --
+        local Frame = utility:Create("Frame", {Vector2.new(0, 0)}, {Size = Vector2.new(10, 10), Color = theme.lightcontrast, ZIndex = 77, Visible = false, Hidden = true})
+        library.colors[Frame] = {Color = "lightcontrast"}
+        --
+        local Accent = utility:Create("Frame", {Vector2.new(0, 0)}, {Size = Vector2.new(10, 1), Color = theme.accent, ZIndex = 78, Visible = false, Hidden = true})
+        library.colors[Accent] = {Color = "accent"}
+        --
+        local Label = utility:Create("TextLabel", {Vector2.new(0, 0)}, {Text = "", Size = theme.textsize, Font = theme.font, Color = theme.textcolor, OutlineColor = theme.textborder, ZIndex = 79, Visible = false, Hidden = true})
+        library.colors[Label] = {OutlineColor = "textborder", Color = "textcolor"}
+        --
+        local Drawings = {Outline, Inline, Frame, Accent, Label}
+        --
+        local function SetVisible(State)
+            for Index, Value in pairs(Drawings) do
+                Value.Visible = State
+            end
+            --
+            Tooltip.Shown = State
+        end
+        --
+        utility:Connection(rs.RenderStepped, function()
+            local Found
+            --
+            if window.isVisible and not window.dragging and not window:IsOverContent() and not window.currentContent.textbox then
+                for Index, Item in pairs(window.Tooltips) do
+                    local Content = Item.Section.visibleContent[1]
+                    --
+                    if Item.Page.open and Content and Content.Visible then
+                        local X1, Y1, X2, Y2 = Item.Bounds()
+                        --
+                        if utility:MouseOverDrawing({X1, Y1, X2, Y2}) then
+                            Found = Item
+                            break
+                        end
+                    end
+                end
+            end
+            --
+            if Found ~= Tooltip.Hover then
+                Tooltip.Hover = Found
+                Tooltip.Since = tick()
+                --
+                if Tooltip.Shown then
+                    SetVisible(false)
+                end
+            end
+            --
+            if Found and (tick() - Tooltip.Since) >= 0.5 then
+                Label.Text = Found.Text
+                --
+                local Bounds = Label.TextBounds
+                local Width, Height = Bounds.X + 12, Bounds.Y + 8
+                local Mouse = utility:MouseLocation()
+                local Screen = utility:GetScreenSize()
+                local X = math.clamp(Mouse.X + 14, 0, Screen.X - Width - 2)
+                local Y = math.clamp(Mouse.Y + 18, 0, Screen.Y - Height - 2)
+                --
+                Outline.Size = Vector2.new(Width, Height)
+                Outline.Position = Vector2.new(X, Y)
+                Inline.Size = Vector2.new(Width - 2, Height - 2)
+                Inline.Position = Vector2.new(X + 1, Y + 1)
+                Frame.Size = Vector2.new(Width - 4, Height - 4)
+                Frame.Position = Vector2.new(X + 2, Y + 2)
+                Accent.Size = Vector2.new(Width - 4, 1)
+                Accent.Position = Vector2.new(X + 2, Y + 2)
+                Label.Position = Vector2.new(X + 6, Y + 4)
+                --
+                if not Tooltip.Shown then
+                    SetVisible(true)
+                end
+            end
+        end)
+        --
+        return Tooltip
+    end
+    --
     function library:SaveTheme(ThemeName)
         local themeTbl = {
             Outline = (theme.outline):ToHex(),
@@ -1065,7 +1167,122 @@ do
         return library.themes[ThemeName]
     end
     --
-    function library:Notification(info)
+        function library:Notification(Info)
+        if typeof(Info) == "string" then
+            Info = {Text = Info}
+        end
+        --
+        Info = Info or {}
+        --
+        local Title = Info.title or Info.Title or Info.name or Info.Name
+        local Text = Info.text or Info.Text or Info.message or Info.Message or ""
+        local Duration = Info.duration or Info.Duration or Info.time or Info.Time or 4
+        local Accent = Info.accent or Info.Accent or Info.color or Info.Color
+        --
+        local Lines = (Title and 1 or 0) + (Text ~= "" and 1 or 0)
+        --
+        if Lines == 0 then
+            return
+        end
+        --
+        local TitleWidth = Title and utility:GetTextBounds(Title, theme.textsize, theme.font).X or 0
+        local TextWidth = Text ~= "" and utility:GetTextBounds(Text, theme.textsize, theme.font).X or 0
+        local Width = math.max(TitleWidth, TextWidth, 120) + 24
+        local Height = 10 + (Lines * 15) + 3
+        --
+        local Notification = {Age = 0, Duration = Duration, Width = Width, Height = Height, HasTitle = Title ~= nil, Drawings = {}}
+        --
+        local function Make(Type, Properties, Colors)
+            Properties.Hidden = true
+            Properties.Visible = true
+            Properties.Transparency = 0
+            --
+            local Object = utility:Create(Type, nil, Properties)
+            --
+            if Colors then
+                library.colors[Object] = Colors
+            end
+            --
+            Notification.Drawings[#Notification.Drawings + 1] = Object
+            --
+            return Object
+        end
+        --
+        Notification.Outline = Make("Frame", {Color = theme.outline, ZIndex = 80}, {Color = "outline"})
+        Notification.Inline = Make("Frame", {Color = theme.inline, ZIndex = 81}, {Color = "inline"})
+        Notification.Frame = Make("Frame", {Color = theme.darkcontrast, ZIndex = 82}, {Color = "darkcontrast"})
+        Notification.Accent = Make("Frame", {Color = Accent or theme.accent, ZIndex = 83}, not Accent and {Color = "accent"} or nil)
+        Notification.Progress = Make("Frame", {Color = Accent or theme.accent, ZIndex = 83}, not Accent and {Color = "accent"} or nil)
+        --
+        if Title then
+            Notification.Title = Make("TextLabel", {Text = Title, Size = theme.textsize, Font = theme.font, Color = theme.textcolor, OutlineColor = theme.textborder, ZIndex = 84}, {OutlineColor = "textborder", Color = "textcolor"})
+        end
+        --
+        if Text ~= "" then
+            Notification.Text = Make("TextLabel", {Text = Text, Size = theme.textsize, Font = theme.font, Color = Title and theme.textdark or theme.textcolor, OutlineColor = theme.textborder, ZIndex = 84}, {OutlineColor = "textborder", Color = Title and "textdark" or "textcolor"})
+        end
+        --
+        library.Notifications[#library.Notifications + 1] = Notification
+        --
+        if not library.NotificationConnection then
+            library.NotificationConnection = utility:Connection(rs.RenderStepped, function(Delta)
+                library:UpdateNotifications(Delta)
+            end)
+        end
+    end
+    --
+    function library:UpdateNotifications(Delta)
+        for Index = #library.Notifications, 1, -1 do
+            local Item = library.Notifications[Index]
+            --
+            Item.Age = Item.Age + Delta
+            --
+            if Item.Age >= Item.Duration + 0.25 then
+                for Index2, Object in pairs(Item.Drawings) do
+                    utility:Remove(Object, true)
+                end
+                --
+                Remove(library.Notifications, Index)
+            end
+        end
+        --
+        local Screen = utility:GetScreenSize()
+        local Offset = 10
+        --
+        for Index, Item in ipairs(library.Notifications) do
+            local Alpha = math.clamp(math.min(Item.Age / 0.25, (Item.Duration + 0.25 - Item.Age) / 0.25), 0, 1)
+            local Remaining = math.clamp(1 - (Item.Age / Item.Duration), 0, 1)
+            --
+            Item.Y = Item.Y and (Item.Y + (Offset - Item.Y) * math.min(Delta * 12, 1)) or Offset
+            Offset = Offset + Item.Height + 6
+            --
+            local X = Screen.X - Item.Width - 10 + ((1 - Alpha) * 30)
+            local Y = Item.Y
+            local Width, Height = Item.Width, Item.Height
+            --
+            Item.Outline.Size = Vector2.new(Width, Height)
+            Item.Outline.Position = Vector2.new(X, Y)
+            Item.Inline.Size = Vector2.new(Width - 2, Height - 2)
+            Item.Inline.Position = Vector2.new(X + 1, Y + 1)
+            Item.Frame.Size = Vector2.new(Width - 4, Height - 4)
+            Item.Frame.Position = Vector2.new(X + 2, Y + 2)
+            Item.Accent.Size = Vector2.new(2, Height - 4)
+            Item.Accent.Position = Vector2.new(X + 2, Y + 2)
+            Item.Progress.Size = Vector2.new(math.max((Width - 8) * Remaining, 0), 2)
+            Item.Progress.Position = Vector2.new(X + 6, Y + Height - 5)
+            --
+            if Item.Title then
+                Item.Title.Position = Vector2.new(X + 10, Y + 5)
+            end
+            --
+            if Item.Text then
+                Item.Text.Position = Vector2.new(X + 10, Y + 5 + (Item.HasTitle and 15 or 0))
+            end
+            --
+            for Index2, Object in pairs(Item.Drawings) do
+                Object.Transparency = Alpha
+            end
+        end
     end
     --
     function library:Loader(info)
@@ -1272,18 +1489,22 @@ do
         end
         --
         function window:IsOverUI()
-            return window.isVisible and utility:MouseOverDrawing({main_frame.Position.X, main_frame.Position.Y, main_frame.Position.X + main_frame.Size.X, main_frame.Position.Y + main_frame.Size.Y})
+            return not window.Unloaded and window.isVisible and utility:MouseOverDrawing({main_frame.Position.X, main_frame.Position.Y, main_frame.Position.X + main_frame.Size.X, main_frame.Position.Y + main_frame.Size.Y})
         end
         --
         local BlockClicksAction = "RosehookBlockClicks" .. tostring(window)
-        cas:BindActionAtPriority(BlockClicksAction, function(_, InputState)
+        utility:BindAction(BlockClicksAction, function(_, InputState)
             if window:IsOverUI() then
                 return Enum.ContextActionResult.Sink
             end
             return Enum.ContextActionResult.Pass
-        end, false, 3000, Enum.UserInputType.MouseButton1, Enum.UserInputType.MouseButton2)
+        end, Enum.UserInputType.MouseButton1, Enum.UserInputType.MouseButton2)
         --
         function window:Unload()
+            window.Unloaded = true
+            window.isVisible = false
+            utility:UnbindActions()
+
             for i,v in pairs(library.connections) do
                 v:Disconnect()
                 v = nil
@@ -1340,6 +1561,8 @@ do
             library.changed = {}
             library.pointers = {}
             library.colors = {}
+            library.Notifications = {}
+            library.NotificationConnection = nil
             --
             uis.MouseIconEnabled = true
         end
@@ -1391,7 +1614,12 @@ do
         function window:Fade()
             window.fading = true
             window.isVisible = not window.isVisible
-            --
+            --  
+
+            if not window.isVisible then
+                window:CloseContent()
+            end
+
             spawn(function()
                 for i, v in pairs(library.drawings) do
                     utility:Lerp(v[1], {Transparency = window.isVisible and v[3] or 0}, 0.25)
@@ -1413,6 +1641,8 @@ do
             end
             --
             library.shared.initialized = true
+            --
+            library:CreateTooltip(window)
             --
             window:Cursor()
             --
@@ -1783,18 +2013,22 @@ do
         end
         --
         function window:IsOverUI()
-            return window.isVisible and utility:MouseOverDrawing({main_frame.Position.X, main_frame.Position.Y, main_frame.Position.X + main_frame.Size.X, main_frame.Position.Y + main_frame.Size.Y})
+            return not window.Unloaded and window.isVisible and utility:MouseOverDrawing({main_frame.Position.X, main_frame.Position.Y, main_frame.Position.X + main_frame.Size.X, main_frame.Position.Y + main_frame.Size.Y})
         end
         --
         local BlockClicksAction = "RosehookBlockClicks" .. tostring(window)
-        cas:BindActionAtPriority(BlockClicksAction, function(_, InputState)
+        utility:BindAction(BlockClicksAction, function(_, InputState)
             if window:IsOverUI() then
                 return Enum.ContextActionResult.Sink
             end
             return Enum.ContextActionResult.Pass
-        end, false, 3000, Enum.UserInputType.MouseButton1, Enum.UserInputType.MouseButton2)
+        end, Enum.UserInputType.MouseButton1, Enum.UserInputType.MouseButton2)
         --
         function window:Unload()
+            window.Unloaded = true
+            window.isVisible = false
+            utility:UnbindActions()
+
             for i,v in pairs(library.connections) do
                 v:Disconnect()
                 v = nil
@@ -1848,6 +2082,11 @@ do
             library.began = {}
             library.ended = {}
             library.changed = {}
+            library.pointers = {}
+            library.colors = {}
+            library.Notifications = {}
+            library.NotificationConnection = nil
+            library.shared.initialized = false
             --
             uis.MouseIconEnabled = true
         end
@@ -2466,6 +2705,10 @@ do
             window.fading = true
             window.isVisible = not window.isVisible
             --
+            if not window.isVisible then
+                window:CloseContent()
+            end
+
             spawn(function()
                 for i, v in pairs(library.drawings) do
                     utility:Lerp(v[1], {Transparency = window.isVisible and v[3] or 0}, 0.25)
@@ -2487,6 +2730,8 @@ do
             end
             --
             library.shared.initialized = true
+            --
+            library:CreateTooltip(window)
             --
             window:Watermark()
             window:KeybindsList()
@@ -3817,15 +4062,15 @@ do
         end
         --
         local PlayerListScrollAction = "RosehookPlayerListScroll" .. tostring(playerList)
-        cas:BindActionAtPriority(PlayerListScrollAction, function(_, InputState, Input)
-            if InputState == Enum.UserInputState.Change and page.open and utility:MouseOverDrawing({list_frame.Position.X, list_frame.Position.Y, list_frame.Position.X + list_frame.Size.X, list_frame.Position.Y + list_frame.Size.Y}) and not window:IsOverContent() then
+        utility:BindAction(PlayerListScrollAction, function(_, InputState, Input)
+            if window.isVisible and InputState == Enum.UserInputState.Change and page.open and utility:MouseOverDrawing({list_frame.Position.X, list_frame.Position.Y, list_frame.Position.X + list_frame.Size.X, list_frame.Position.Y + list_frame.Size.Y}) and not window:IsOverContent() then
                 playerList.scrollingindex = math.clamp(playerList.scrollingindex - math.sign(Input.Position.Z), 0, math.max(#playerList.players - 10, 0))
                 playerList:UpdateScroll()
                 --
                 return Enum.ContextActionResult.Sink
             end
             return Enum.ContextActionResult.Pass
-        end, false, 3000, Enum.UserInputType.MouseWheel)
+        end, Enum.UserInputType.MouseWheel)
         --
         playerList:UpdateScroll()
         --
@@ -3979,6 +4224,29 @@ do
         }
     end
     --
+    function sections:Tooltip(Info, Axis, Height)
+        local Text = Info.tooltip or Info.Tooltip
+        --
+        if not Text then
+            return
+        end
+        --
+        local Section = self
+        local Window = self.window
+        --
+        Window.Tooltips = Window.Tooltips or {}
+        Window.Tooltips[#Window.Tooltips + 1] = {
+            Text = Text,
+            Page = self.page,
+            Section = Section,
+            Bounds = function()
+                local Frame = Section.section_frame
+                --
+                return Frame.Position.X, Frame.Position.Y + Axis, Frame.Position.X + Frame.Size.X, Frame.Position.Y + Axis + Height
+            end
+        }
+    end
+    --
     function sections:Label(info)
         local info = info or {}
         local name = info.name or info.Name or info.title or info.Title or "New Label"
@@ -4072,6 +4340,8 @@ do
         local section = self
         --
         local toggle = {axis = section.currentAxis, current = def, addedAxis = 0, addedKeybind = nil, colorpickers = 0, keybind = nil}
+        --
+        section:Tooltip(info, toggle.axis, 15)
         --
         local toggle_outline = utility:Create("Frame", {Vector2.new(4,toggle.axis), section.section_frame}, {
             Size = utility:Size(0, 15, 0, 15),
@@ -5189,6 +5459,8 @@ do
         --
         local button = {axis = section.currentAxis}
         --
+        section:Tooltip(info, button.axis, 20)
+        --
         local button_outline = utility:Create("Frame", {Vector2.new(4,button.axis), section.section_frame}, {
             Size = utility:Size(1, -8, 0, 20, section.section_frame),
             Position = utility:Position(0, 4, 0, button.axis, section.section_frame),
@@ -5285,6 +5557,8 @@ do
         local section = self
         --
         local textbox = {axis = section.currentAxis, max = max, current = def, oldenter = "", callback = callback}
+        --
+        section:Tooltip(info, textbox.axis, 20)
         --
         local textbox_outline = utility:Create("Frame", {Vector2.new(4,textbox.axis), section.section_frame}, {
             Size = utility:Size(1, -8, 0, 20, section.section_frame),
@@ -5577,18 +5851,19 @@ do
         local section = self
         --
         local dropdown = {open = false, scrollindex = max and 0, scrolling = max and {false, nil}, current = tostring(def), options = options, holder = {buttons = {}, drawings = {}}, axis = section.currentAxis}
+        --
+        section:Tooltip(info, dropdown.axis, name and 35 or 20)
+        --
         local DropdownAction = "RosehookDropdown" .. tostring(dropdown)
-        if max then
-            cas:BindActionAtPriority(DropdownAction, function(_, InputState, Input)
-                if InputState == Enum.UserInputState.Change and dropdown.open and dropdown.holder.inline and utility:MouseOverDrawing({dropdown.holder.inline.Position.X, dropdown.holder.inline.Position.Y, dropdown.holder.inline.Position.X + dropdown.holder.inline.Size.X, dropdown.holder.inline.Position.Y + dropdown.holder.inline.Size.Y}) then
-                    dropdown.scrollindex = math.clamp(dropdown.scrollindex - math.sign(Input.Position.Z), 0, math.max(#dropdown.options - max, 0))
-                    dropdown:UpdateScroll()
-                    --
-                    return Enum.ContextActionResult.Sink
-                end
-                return Enum.ContextActionResult.Pass
-            end, false, 3000, Enum.UserInputType.MouseWheel)
-        end
+        utility:BindAction(DropdownAction, function(_, InputState, Input)
+            if window.isVisible and InputState == Enum.UserInputState.Change and dropdown.open and dropdown.holder.inline and utility:MouseOverDrawing({dropdown.holder.inline.Position.X, dropdown.holder.inline.Position.Y, dropdown.holder.inline.Position.X + dropdown.holder.inline.Size.X, dropdown.holder.inline.Position.Y + dropdown.holder.inline.Size.Y}) then
+                dropdown.scrollindex = math.clamp(dropdown.scrollindex - math.sign(Input.Position.Z), 0, math.max(#dropdown.options - max, 0))
+                dropdown:UpdateScroll()
+                --
+                return Enum.ContextActionResult.Sink
+            end
+            return Enum.ContextActionResult.Pass
+        end, Enum.UserInputType.MouseWheel)
         --
         local dropdown_outline = utility:Create("Frame", {Vector2.new(4,name and (dropdown.axis + 15) or dropdown.axis), section.section_frame}, {
             Size = utility:Size(1, -8, 0, 20, section.section_frame),
@@ -7686,15 +7961,15 @@ do
         end
         --
         local ListScrollAction = "RosehookListScroll" .. tostring(list)
-        cas:BindActionAtPriority(ListScrollAction, function(_, InputState, Input)
-            if InputState == Enum.UserInputState.Change and page.open and utility:MouseOverDrawing({section.section_frame.Position.X, section.section_frame.Position.Y + list.axis, section.section_frame.Position.X + section.section_frame.Size.X, section.section_frame.Position.Y + list.axis + ((list.max * 20) + 4)}) and not window:IsOverContent() then
+        utility:BindAction(ListScrollAction, function(_, InputState, Input)
+            if window.isVisible and InputState == Enum.UserInputState.Change and page.open and utility:MouseOverDrawing({section.section_frame.Position.X, section.section_frame.Position.Y + list.axis, section.section_frame.Position.X + section.section_frame.Size.X, section.section_frame.Position.Y + list.axis + ((list.max * 20) + 4)}) and not window:IsOverContent() then
                 list.scrollingindex = math.clamp(list.scrollingindex - math.sign(Input.Position.Z), 0, math.max(#list.options - list.max, 0))
                 list:UpdateScroll()
                 --
                 return Enum.ContextActionResult.Sink
             end
             return Enum.ContextActionResult.Pass
-        end, false, 3000, Enum.UserInputType.MouseWheel)
+        end, Enum.UserInputType.MouseWheel)
         --
         if pointer and tostring(pointer) ~= "" and tostring(pointer) ~= " " and not library.pointers[tostring(pointer)] then
             library.pointers[tostring(pointer)] = list
