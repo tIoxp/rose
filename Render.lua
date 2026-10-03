@@ -1,4 +1,4 @@
-local Render = { Connections = { } }
+local Render = { Connections = { }, Version = 3 }
 
 do
     function Render:Paint(ZIndex, Callback)
@@ -21,6 +21,9 @@ do
     function Render:Arrow(PointA, PointB, PointC, Color, Opacity)
         DrawingImmediate.Triangle(PointA, PointB, PointC, Color3.new(0.1, 0.1, 0.1), Opacity, 3)
         DrawingImmediate.FilledTriangle(PointA, PointB, PointC, Color, Opacity)
+    end
+    function Render:Circle(Position, Radius, Color, Opacity, Thickness, NumSides, Filled)
+        DrawingImmediate.Circle(Position, Radius, Color, Opacity, Thickness or 1, NumSides or 62)
     end
 
     function Render:Text(Position, Text, Color, Opacity, Font, Size)
