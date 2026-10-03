@@ -1,21 +1,35 @@
-local Visuals = { DrawingObjects = { }, Objects = { }, Cache = { } }
+local Visuals = {
+    Objects = { },
+    DrawingObjects = { },
+    Cache = { },
+}
 
 do
-    function Visuals:Create(Class, Properties)
-        local Instance = Instance.new(Class)
-        for Key, Value in Properties do Instance[Key] = Value end
-        table.insert(self.Objects, Instance)
-        return Instance
+    function Visuals:New(Class, Properties)
+        local InstanceObject = Instance.new(Class)
+
+        for Property, Value in Properties do
+            InstanceObject[Property] = Value
+        end
+
+        self.Objects[#self.Objects + 1] = InstanceObject
+
+        return InstanceObject
     end
 
     function Visuals:Draw(Class, Properties)
         local DrawingObject = Drawing.new(Class)
-        for Propety, Value in Properties do DrawingObject[Propety] = Value end
-        table.insert(self.DrawingObjects, DrawingObject)
+
+        for Property, Value in Properties do
+            DrawingObject[Property] = Value
+        end
+
+        self.DrawingObjects[#self.DrawingObjects + 1] = DrawingObject
+
         return DrawingObject
     end
 
-    Visuals.Screen = Visuals:Create('ScreenGui', {
+    Visuals.Screen = Visuals:New('ScreenGui', {
         Parent = gethui(),
         Name = 'Visuals',
         ZIndexBehavior = Enum.ZIndexBehavior.Global,
@@ -23,7 +37,7 @@ do
         ResetOnSpawn = false
     })
 
-    Visuals.Holder = Visuals:Create('Frame', {
+    Visuals.Holder = Visuals:New('Frame', {
         Parent = Visuals.Screen,
         Name = 'Holder',
         BackgroundTransparency = 1,
@@ -31,7 +45,7 @@ do
     })
 
     function Visuals:CreateText(Properties)
-        local Text = self:Create('TextLabel', {
+        local Text = self:New('TextLabel', {
             BackgroundTransparency = 1,
             TextColor3 = Color3.new(1, 1, 1),
             TextStrokeTransparency = 0,
@@ -39,48 +53,50 @@ do
             Parent = self.Holder
         })
 
-        self:Create('UIStroke', {
+        self:New('UIStroke', {
             Thickness = 1,
             LineJoinMode = Enum.LineJoinMode.Miter,
             Parent = Text
         })
 
         if Properties then
-            for Key, Value in Properties do Text[Key] = Value end
+            for Property, Value in Properties do
+                Text[Property] = Value
+            end
         end
 
         return Text
     end
 
     function Visuals:CreateCircle()
-        local Circle = self:Create('Frame', {
+        local Circle = self:New('Frame', {
             BackgroundTransparency = 1,
             BorderSizePixel = 0,
             Visible = false,
             Parent = self.Holder
         })
 
-        self:Create('UICorner', {
+        self:New('UICorner', {
             CornerRadius = UDim.new(1, 0),
             Parent = Circle
         })
-        
-        local Stroke = self:Create('UIStroke', {
+
+        local Stroke = self:New('UIStroke', {
             Color = Color3.new(1, 1, 1),
             LineJoinMode = Enum.LineJoinMode.Round,
             Parent = Circle
         })
 
-        self:Create('UIStroke', {
+        self:New('UIStroke', {
             Thickness = 3,
             ZIndex = -1,
             LineJoinMode = Enum.LineJoinMode.Round,
             BorderOffset = UDim.new(0, -1),
             Parent = Circle
         })
-        
+
         return Circle, Stroke
-    end 
+    end
 
     function Visuals:CreateBox(Properties)
         local Box = self:New('Frame', {
@@ -98,10 +114,10 @@ do
         })
 
         if Properties then
-            for Key, Value in Properties do
-                if Key == 'Color' then
+            for Property, Value in Properties do
+                if Property == 'Color' then
                     Stroke.Color = Value
-                elseif Key == 'Thickness' then
+                elseif Property == 'Thickness' then
                     Stroke.Thickness = Value
                 end
             end
@@ -111,27 +127,39 @@ do
     end
 
     function Visuals:CreateLine()
-        local Line = self:Create('Frame', {
+        local Line = self:New('Frame', {
             Parent = self.Holder,
             BorderSizePixel = 0,
             AnchorPoint = Vector2.new(0.5, 0.5),
             ZIndex = 2
         })
-        self:Create('UIStroke', {
+
+        self:New('UIStroke', {
             Parent = Line,
             Thickness = 1,
             Color = Color3.new(0, 0, 0)
         })
+
         return Line
     end
 
-    function Visuals:Clear()
-        for _, Object in self.Objects do if Object then Object:Destroy() end end
+    function Visuals:CleanUp()
+        for _, DrawingObject in self.DrawingObjects do
+            if DrawingObject then
+                DrawingObject:Destroy()
+            end
+        end
+
+        for _, InstanceObject in self.Objects do
+            if InstanceObject then
+                InstanceObject:Destroy()
+            end
+        end
+
+        table.clear(self.DrawingObjects)
         table.clear(self.Objects)
         table.clear(self.Cache)
     end
-
 end
 
 return Visuals
-
