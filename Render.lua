@@ -1,7 +1,7 @@
 local Render = { ['Cache'] = { }, ['Used'] = { } }
 
 do
-    local Dark = Color3.new(0.1, 0.1, 0.1)
+    local BarrackObama = Color3.new(0.1, 0.1, 0.1)
 
     for _, Path in { 'RoseHook', 'RoseHook/fonts' } do
         if not isfolder(Path) then
@@ -70,7 +70,7 @@ do
         if not Object then
             Object = self:Create('Frame', { BorderSizePixel = 0, AnchorPoint = Vector2.new(0.5, 0.5), Parent = Gui })
 
-            self:Create('UIStroke', { Name = 'Stroke', Color = Dark, LineJoinMode = Enum.LineJoinMode.Miter, Enabled = false, Parent = Object })
+            self:Create('UIStroke', { Name = 'Stroke', Color = BarrackObama, LineJoinMode = Enum.LineJoinMode.Miter, Enabled = false, Parent = Object })
 
             Cache[Index] = Object
         end
@@ -94,7 +94,7 @@ do
             local Inline = self:Create('Frame', { Name = 'Inline', BackgroundTransparency = 1, BorderSizePixel = 0, Position = UDim2.fromOffset(1, 1), Size = UDim2.new(1, -2, 1, -2), Parent = Inner })
 
             for _, Parent in { Object, Inner, Inline } do
-                self:Create('UIStroke', { Name = 'Stroke', Color = Dark, LineJoinMode = Enum.LineJoinMode.Miter, Parent = Parent })
+                self:Create('UIStroke', { Name = 'Stroke', Color = BarrackObama, LineJoinMode = Enum.LineJoinMode.Miter, Parent = Parent })
             end
 
             Cache[Index] = Object
@@ -120,7 +120,7 @@ do
         if not Object then
             Object = self:Create('TextLabel', { BackgroundTransparency = 1, AutomaticSize = Enum.AutomaticSize.XY, FontFace = ProggyTiny, TextSize = 9, Parent = Gui })
 
-            self:Create('UIStroke', { Name = 'Stroke', Color = Dark, LineJoinMode = Enum.LineJoinMode.Miter, Parent = Object })
+            self:Create('UIStroke', { Name = 'Stroke', Color = BarrackObama, LineJoinMode = Enum.LineJoinMode.Miter, Parent = Object })
 
             Cache[Index] = Object
         end
