@@ -13,7 +13,7 @@ do
         writefile('RoseHook/fonts/ProggyTiny.ttf', game:HttpGet('https://github.com/i77lhm/storage/raw/refs/heads/main/fonts/ProggyTiny.ttf'))
     end
 
-    writefile('RoseHook/fonts/ProggyTiny.font', HttpService:JSONEncode({
+    writefile('RoseHook/fonts/ProggyTiny.font', game:GetService('HttpService'):JSONEncode({
         ['name'] = 'ProggyTiny',
         ['faces'] = { {
             ['name'] = 'Normal',
