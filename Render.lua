@@ -1,210 +1,132 @@
-local Render = {
-    ['Pools'] = { ['Line'] = { }, ['Box'] = { }, ['Text'] = { } },
-    ['Used'] = { ['Line'] = 0, ['Box'] = 0, ['Text'] = 0 },
-    ['Fonts'] = { },
-    ['DefaultFont'] = 'ProggyTiny',
-    ['DefaultSize'] = 9
-}
+local Render = { ['Cache'] = { }, ['Used'] = { } }
 
 do
-    do --// Fonts
-        local FontNames = {
-            ['ProggyClean'] = 'ProggyClean.ttf',
-            ['Tahoma'] = 'fs-tahoma-8px.ttf',
-            ['Verdana'] = 'Verdana-Font.ttf',
-            ['SmallestPixel'] = 'smallest_pixel-7.ttf',
-            ['ProggyTiny'] = 'ProggyTiny.ttf',
-            ['Minecraftia'] = 'Minecraftia-Regular.ttf',
-            ['Tahoma Bold'] = 'tahoma_bold.ttf',
-            ['Rubik'] = 'Rubik-Regular.ttf'
-        }
+    local Dark = Color3.new(0.1, 0.1, 0.1)
 
-        Render.FontIndexes = { 'ProggyClean', 'Tahoma', 'Verdana', 'SmallestPixel', 'ProggyTiny', 'Minecraftia', 'Tahoma Bold', 'Rubik' }
-
-        if not isfolder('RoseHook') then
-            makefolder('RoseHook')
-        end
-
-        if not isfolder('RoseHook/fonts') then
-            makefolder('RoseHook/fonts')
-        end
-
-        local function RegisterFont(Name, Weight, Style, Asset)
-            if not isfile('RoseHook/fonts/' .. Asset.Id) then
-                writefile('RoseHook/fonts/' .. Asset.Id, Asset.Font)
-            end
-
-            if isfile('RoseHook/fonts/' .. Name .. '.font') then
-                delfile('RoseHook/fonts/' .. Name .. '.font')
-            end
-
-            local Data = {
-                ['name'] = Name,
-                ['faces'] = {
-                    {
-                        ['name'] = 'Normal',
-                        ['weight'] = Weight,
-                        ['style'] = Style,
-                        ['assetId'] = getcustomasset('RoseHook/fonts/' .. Asset.Id)
-                    }
-                }
-            }
-
-            writefile('RoseHook/fonts/' .. Name .. '.font', HttpService:JSONEncode(Data))
-
-            return getcustomasset('RoseHook/fonts/' .. Name .. '.font')
-        end
-
-        for Name, Suffix in FontNames do
-            local Weight = Name == 'Rubik' and 900 or 400
-            local FontData
-
-            if isfile('RoseHook/fonts/' .. Suffix) then
-                FontData = readfile('RoseHook/fonts/' .. Suffix)
-            else
-                FontData = game:HttpGet('https://github.com/i77lhm/storage/raw/refs/heads/main/fonts/' .. Suffix)
-            end
-
-            local RegisteredFont = RegisterFont(Name, Weight, 'Normal', {
-                ['Id'] = Suffix,
-                ['Font'] = FontData
-            })
-
-            Render.Fonts[Name] = Font.new(RegisteredFont, Enum.FontWeight.Regular, Enum.FontStyle.Normal)
+    for _, Path in { 'RoseHook', 'RoseHook/fonts' } do
+        if not isfolder(Path) then
+            makefolder(Path)
         end
     end
 
-    do --// Gui
-        local Gui = Instance.new('ScreenGui')
-
-        Gui.Name = 'Render'
-        Gui.IgnoreGuiInset = true
-        Gui.ResetOnSpawn = false
-        Gui.Parent = gethui()
-
-        Render.Gui = Gui
+    if not isfile('RoseHook/fonts/ProggyTiny.ttf') then
+        writefile('RoseHook/fonts/ProggyTiny.ttf', game:HttpGet('https://github.com/i77lhm/storage/raw/refs/heads/main/fonts/ProggyTiny.ttf'))
     end
 
-    function Render:Create(Type)
-        if Type == 'Line' then
-            local Object = Instance.new('Frame')
+    writefile('RoseHook/fonts/ProggyTiny.font', HttpService:JSONEncode({
+        ['name'] = 'ProggyTiny',
+        ['faces'] = { {
+            ['name'] = 'Normal',
+            ['weight'] = 400,
+            ['style'] = 'Normal',
+            ['assetId'] = getcustomasset('RoseHook/fonts/ProggyTiny.ttf')
+        } }
+    }))
 
-            Object.BorderSizePixel = 0
-            Object.AnchorPoint = Vector2.new(0.5, 0.5)
-            Object.Parent = self.Gui
+    local ProggyTiny = Font.new(getcustomasset('RoseHook/fonts/ProggyTiny.font'))
 
-            return Object
+    local Gui = Instance.new('ScreenGui')
+
+    Gui.Name = 'Render'
+    Gui.IgnoreGuiInset = true
+    Gui.ResetOnSpawn = false
+    Gui.Parent = gethui()
+
+    function Render:Create(Class, Properties)
+        local Object = Instance.new(Class)
+
+        for Property, Value in Properties do
+            Object[Property] = Value
         end
-
-        if Type == 'Box' then
-            local Object = Instance.new('Frame')
-
-            Object.BackgroundTransparency = 1
-            Object.BorderSizePixel = 0
-            Object.Parent = self.Gui
-
-            local Stroke = Instance.new('UIStroke')
-
-            Stroke.Name = 'Stroke'
-            Stroke.LineJoinMode = Enum.LineJoinMode.Miter
-            Stroke.Parent = Object
-
-            local Outline = Instance.new('Frame')
-
-            Outline.Name = 'Outline'
-            Outline.BackgroundTransparency = 1
-            Outline.BorderSizePixel = 0
-            Outline.Parent = Object
-
-            local OutlineStroke = Instance.new('UIStroke')
-
-            OutlineStroke.Name = 'Stroke'
-            OutlineStroke.Color = Color3.new(0.1, 0.1, 0.1)
-            OutlineStroke.LineJoinMode = Enum.LineJoinMode.Miter
-            OutlineStroke.Parent = Outline
-
-            return Object
-        end
-
-        local Object = Instance.new('TextLabel')
-
-        Object.BackgroundTransparency = 1
-        Object.BorderSizePixel = 0
-        Object.Size = UDim2.fromOffset(0, 0)
-        Object.AutomaticSize = Enum.AutomaticSize.XY
-        Object.TextWrapped = false
-        Object.Parent = self.Gui
-
-        local Stroke = Instance.new('UIStroke')
-
-        Stroke.Name = 'Stroke'
-        Stroke.Color = Color3.new(0.1, 0.1, 0.1)
-        Stroke.LineJoinMode = Enum.LineJoinMode.Miter
-        Stroke.Parent = Object
 
         return Object
     end
 
-    function Render:Acquire(Type)
+    function Render:Get(Type)
+        local Cache = self.Cache[Type]
+
+        if not Cache then
+            Cache = { }
+            self.Cache[Type] = Cache
+            self.Used[Type] = 0
+        end
+
         local Index = self.Used[Type] + 1
+        local Object = Cache[Index]
 
         self.Used[Type] = Index
 
-        local Object = self.Pools[Type][Index]
-
-        if not Object then
-            Object = self:Create(Type)
-            self.Pools[Type][Index] = Object
+        if Object then
+            Object.Visible = true
         end
 
-        Object.Visible = true
-
-        return Object
+        return Object, Cache, Index
     end
 
-    function Render:Line(From, To, Color, Transparency, Thickness)
-        local Object = self:Acquire('Line')
+    function Render:Line(From, To, Color, Transparency, Thickness, Outline)
+        local Object, Cache, Index = self:Get('Line')
         local Offset = To - From
+
+        if not Object then
+            Object = self:Create('Frame', { BorderSizePixel = 0, AnchorPoint = Vector2.new(0.5, 0.5), Parent = Gui })
+
+            self:Create('UIStroke', { Name = 'Stroke', Color = Dark, LineJoinMode = Enum.LineJoinMode.Miter, Enabled = false, Parent = Object })
+
+            Cache[Index] = Object
+        end
 
         Object.Position = UDim2.fromOffset((From.X + To.X) * 0.5, (From.Y + To.Y) * 0.5)
         Object.Size = UDim2.fromOffset(Offset.Magnitude, Thickness or 1)
         Object.Rotation = math.deg(math.atan2(Offset.Y, Offset.X))
         Object.BackgroundColor3 = Color
         Object.BackgroundTransparency = Transparency
+        Object.Stroke.Enabled = Outline == true
+        Object.Stroke.Transparency = Transparency
     end
 
-    function Render:Box(Position, Size, Color, Transparency, Rounding, Thickness)
-        local Object = self:Acquire('Box')
-        local StrokeThickness = Thickness or 1
+    function Render:Box(Position, Size, Color, Transparency)
+        local Object, Cache, Index = self:Get('Box')
+
+        if not Object then
+            Object = self:Create('Frame', { BackgroundTransparency = 1, BorderSizePixel = 0, Parent = Gui })
+
+            local Inner = self:Create('Frame', { Name = 'Inner', BackgroundTransparency = 1, BorderSizePixel = 0, Position = UDim2.fromOffset(1, 1), Size = UDim2.new(1, -2, 1, -2), Parent = Object })
+            local Inline = self:Create('Frame', { Name = 'Inline', BackgroundTransparency = 1, BorderSizePixel = 0, Position = UDim2.fromOffset(1, 1), Size = UDim2.new(1, -2, 1, -2), Parent = Inner })
+
+            for _, Parent in { Object, Inner, Inline } do
+                self:Create('UIStroke', { Name = 'Stroke', Color = Dark, LineJoinMode = Enum.LineJoinMode.Miter, Parent = Parent })
+            end
+
+            Cache[Index] = Object
+        end
 
         Object.Position = UDim2.fromOffset(Position.X, Position.Y)
         Object.Size = UDim2.fromOffset(Size.X, Size.Y)
-
-        Object.Stroke.Color = Color
-        Object.Stroke.Thickness = StrokeThickness
         Object.Stroke.Transparency = Transparency
-
-        Object.Outline.Position = UDim2.fromOffset(-StrokeThickness, -StrokeThickness)
-        Object.Outline.Size = UDim2.new(1, StrokeThickness * 2, 1, StrokeThickness * 2)
-        Object.Outline.Stroke.Transparency = Transparency
+        Object.Inner.Stroke.Color = Color
+        Object.Inner.Stroke.Transparency = Transparency
+        Object.Inner.Inline.Stroke.Transparency = Transparency
     end
 
-    function Render:Arrow(PointA, PointB, PointC, Color, Transparency, Thickness)
-        local LineThickness = (Thickness or 1) + 1
-
-        self:Line(PointA, PointB, Color, Transparency, LineThickness)
-        self:Line(PointB, PointC, Color, Transparency, LineThickness)
-        self:Line(PointC, PointA, Color, Transparency, LineThickness)
+    function Render:Arrow(PointA, PointB, PointC, Color, Transparency, Thickness, Outline)
+        self:Line(PointA, PointB, Color, Transparency, Thickness, Outline)
+        self:Line(PointB, PointC, Color, Transparency, Thickness, Outline)
+        self:Line(PointC, PointA, Color, Transparency, Thickness, Outline)
     end
 
-    function Render:Text(Position, Text, Color, Transparency, Font, Size, Centered)
-        local Object = self:Acquire('Text')
-        local FontName = type(Font) == 'number' and self.FontIndexes[Font] or Font or self.DefaultFont
+    function Render:Text(Position, Text, Color, Transparency, Centered)
+        local Object, Cache, Index = self:Get('Text')
+
+        if not Object then
+            Object = self:Create('TextLabel', { BackgroundTransparency = 1, AutomaticSize = Enum.AutomaticSize.XY, FontFace = ProggyTiny, TextSize = 9, Parent = Gui })
+
+            self:Create('UIStroke', { Name = 'Stroke', Color = Dark, LineJoinMode = Enum.LineJoinMode.Miter, Parent = Object })
+
+            Cache[Index] = Object
+        end
 
         Object.AnchorPoint = Vector2.new(Centered == false and 0 or 0.5, 0)
         Object.Position = UDim2.fromOffset(Position.X, Position.Y)
-        Object.FontFace = self.Fonts[FontName] or self.Fonts[self.DefaultFont]
-        Object.TextSize = Size or self.DefaultSize
         Object.Text = tostring(Text)
         Object.TextColor3 = Color
         Object.TextTransparency = Transparency
@@ -212,10 +134,8 @@ do
     end
 
     function Render:CleanUp()
-        self.Gui:Destroy()
-
-        for _, Pool in self.Pools do
-            table.clear(Pool)
-        end
+        Gui:Destroy()
     end
 end
+
+return Render
