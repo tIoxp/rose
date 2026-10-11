@@ -1,7 +1,8 @@
-local Render = { ['Cache'] = { }, ['Used'] = { } }
+local Fonts = { }
+local FontIndexes = { }
 
 do
-    local BarrackObama = Color3.new(0.1, 0.1, 0.1)
+    local HttpService = game:GetService('HttpService')
 
     for _, Path in { 'RoseHook', 'RoseHook/fonts' } do
         if not isfolder(Path) then
@@ -9,21 +10,38 @@ do
         end
     end
 
-    if not isfile('RoseHook/fonts/ProggyTiny.ttf') then
-        writefile('RoseHook/fonts/ProggyTiny.ttf', game:HttpGet('https://github.com/i77lhm/storage/raw/refs/heads/main/fonts/ProggyTiny.ttf'))
+    for _, Data in {
+        { 'ProggyClean', 'ProggyClean.ttf' },
+        { 'Tahoma', 'fs-tahoma-8px.ttf' },
+        { 'Verdana', 'Verdana-Font.ttf' },
+        { 'SmallestPixel', 'smallest_pixel-7.ttf' },
+        { 'ProggyTiny', 'ProggyTiny.ttf' },
+        { 'Minecraftia', 'Minecraftia-Regular.ttf' },
+        { 'Tahoma Bold', 'tahoma_bold.ttf' },
+        { 'Rubik', 'Rubik-Regular.ttf' }
+    } do
+        local Name, File = Data[1], Data[2]
+        local Ttf = 'RoseHook/fonts/' .. File
+        local Json = 'RoseHook/fonts/' .. Name .. '.font'
+
+        if not isfile(Ttf) then
+            writefile(Ttf, game:HttpGet('https://github.com/i77lhm/storage/raw/refs/heads/main/fonts/' .. File))
+        end
+
+        writefile(Json, HttpService:JSONEncode({
+            ['name'] = Name,
+            ['faces'] = { { ['name'] = 'Normal', ['weight'] = 400, ['style'] = 'Normal', ['assetId'] = getcustomasset(Ttf) } }
+        }))
+
+        Fonts[Name] = Font.new(getcustomasset(Json))
+        table.insert(FontIndexes, Name)
     end
+end
 
-    writefile('RoseHook/fonts/ProggyTiny.font', game:GetService('HttpService'):JSONEncode({
-        ['name'] = 'ProggyTiny',
-        ['faces'] = { {
-            ['name'] = 'Normal',
-            ['weight'] = 400,
-            ['style'] = 'Normal',
-            ['assetId'] = getcustomasset('RoseHook/fonts/ProggyTiny.ttf')
-        } }
-    }))
+local Render = { ['Cache'] = { }, ['Used'] = { }, ['Fonts'] = Fonts, ['FontIndexes'] = FontIndexes }
 
-    local ProggyTiny = Font.new(getcustomasset('RoseHook/fonts/ProggyTiny.font'))
+do
+    local BarrackObama = Color3.new(0.1, 0.1, 0.1)
 
     local Gui = Instance.new('ScreenGui')
 
@@ -108,23 +126,54 @@ do
         Object.Inner.Inline.Stroke.Transparency = Transparency
     end
 
+    function Render:Circle(Position, Radius, Color, Transparency, Filled, Thickness, Outline)
+        local Object, Cache, Index = self:Get('Circle')
+        local IsFilled = Filled ~= false
+
+        if not Object then
+            Object = self:Create('Frame', { BorderSizePixel = 0, AnchorPoint = Vector2.new(0.5, 0.5), Parent = Gui })
+
+            self:Create('UICorner', { CornerRadius = UDim.new(1, 0), Parent = Object })
+            self:Create('UIStroke', { Name = 'Stroke', Color = BarrackObama, Parent = Object })
+
+            Cache[Index] = Object
+        end
+
+        Object.Position = UDim2.fromOffset(Position.X, Position.Y)
+        Object.Size = UDim2.fromOffset(Radius * 2, Radius * 2)
+        Object.BackgroundColor3 = Color
+        Object.BackgroundTransparency = IsFilled and Transparency or 1
+        Object.Stroke.Enabled = not IsFilled or Outline == true
+        Object.Stroke.Color = IsFilled and BarrackObama or Color
+        Object.Stroke.Thickness = IsFilled and 1 or (Thickness or 1)
+        Object.Stroke.Transparency = Transparency
+    end
+
     function Render:Arrow(PointA, PointB, PointC, Color, Transparency, Thickness, Outline)
+        local Steps = math.max(1, math.ceil((PointC - PointB).Magnitude / 2))
+
+        for Step = 0, Steps do
+            self:Line(PointA, PointB:Lerp(PointC, Step / Steps), Color, Transparency, 2)
+        end
+
         self:Line(PointA, PointB, Color, Transparency, Thickness, Outline)
         self:Line(PointB, PointC, Color, Transparency, Thickness, Outline)
         self:Line(PointC, PointA, Color, Transparency, Thickness, Outline)
     end
 
-    function Render:Text(Position, Text, Color, Transparency, Centered)
+    function Render:Text(Position, Text, Color, Transparency, Centered, Font, Size)
         local Object, Cache, Index = self:Get('Text')
 
         if not Object then
-            Object = self:Create('TextLabel', { BackgroundTransparency = 1, AutomaticSize = Enum.AutomaticSize.XY, FontFace = ProggyTiny, TextSize = 9, Parent = Gui })
+            Object = self:Create('TextLabel', { BackgroundTransparency = 1, AutomaticSize = Enum.AutomaticSize.XY, Parent = Gui })
 
             self:Create('UIStroke', { Name = 'Stroke', Color = BarrackObama, LineJoinMode = Enum.LineJoinMode.Miter, Parent = Object })
 
             Cache[Index] = Object
         end
 
+        Object.FontFace = Fonts[Font] or Fonts['ProggyTiny']
+        Object.TextSize = Size or 9
         Object.AnchorPoint = Vector2.new(Centered == false and 0 or 0.5, 0)
         Object.Position = UDim2.fromOffset(Position.X, Position.Y)
         Object.Text = tostring(Text)
