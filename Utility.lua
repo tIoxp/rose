@@ -3,13 +3,6 @@ Utility = {
     Connections = { },
 }
 
-local Camera = workspace.CurrentCamera
-workspace:GetPropertyChangedSignal('CurrentCamera'):Connect(function()
-  Camera = workspace.CurrentCamera
-end)
-
-local Stats = cloneref(game:GetService('Stats'))
-
 do
     do -- math
         Utility.Math = {}
@@ -25,6 +18,10 @@ do
         function Utility.Math:Clamp(Value, Min, Max)
             return math.max(math.min(Value, Max), Min)
         end
+    end
+
+    function Utility:GetService(Name)
+        return cloneref(game:GetService(Name))
     end
 
     function Utility:New(Class, Properties)
@@ -69,45 +66,59 @@ do
     end
 
     function Utility:WorldToScreen(WorldPosition)
-        local ScreenPosition, OnScreen = Camera:WorldToViewportPoint(WorldPosition)
+        local ScreenPosition, OnScreen = workspace.CurrentCamera:WorldToViewportPoint(WorldPosition)
         return Vector2.new(ScreenPosition.X, ScreenPosition.Y), OnScreen, ScreenPosition.Z
     end
 
-    function Utility:FindUpvalue(Function, UpvalueName)
+    function Utility:FindUpvalue(Function, NameOrIndex)
         assert(typeof(Function) == 'function', 'Not a function')
 
         local Upvalues = getupvalues(Function)
         assert(#Upvalues > 0, 'Function has no upvalues')
-        
+
+        if type(NameOrIndex) == 'number' then
+            return Upvalues[NameOrIndex]
+        end
+
         for Index, Upvalue in Upvalues do
             if typeof(Upvalue) == 'function' then
                 local Name = debug.getinfo(Upvalue).name
 
-                if Name == UpvalueName then
+                if Name == NameOrIndex then
                     return Upvalue
                 end
             end
         end
-        
+
         return nil
     end
 
-    function Utility:FindProto(Function, ProtoName)
+    function Utility:FindProto(Function, NameOrIndex)
         assert(typeof(Function) == 'function', 'Not a function')
 
         local Protos = getprotos(Function)
         assert(#Protos > 0, 'Function has no protos')
-    
+
+        if type(NameOrIndex) == 'number' then
+            if not Protos[NameOrIndex] then
+                return nil
+            end
+
+            return getproto(Function, NameOrIndex, true)
+        end
+
         for Index, Proto in Protos do
             local Name = debug.getinfo(Proto).name
-            if Name == ProtoName then
+
+            if Name == NameOrIndex then
                 return getproto(Function, Index, true)
             end
         end
-        
+
         return nil
     end
 
+    local Stats = Utility:GetService('Stats')
     function Utility:GetPerformanceStats()
         local StatsTable = {
             FPS = self.Math:Round(1 / Stats.FrameTime),
@@ -134,7 +145,6 @@ do
 
         table.clear(self.Connections)
         table.clear(self.Instances)
-        table.clear(self.DrawingObjects)
     end
 end
 
