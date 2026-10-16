@@ -1,4 +1,5 @@
 Utility = {
+    Hooks = { },
     Instances = { },
     Connections = { },
 }
@@ -154,6 +155,11 @@ do
             end
         end
 
+        for _, Function in self.Hooks do
+            restorefunction(Function)
+        end
+        
+        table.clear(self.Hooks)                                      
         table.clear(self.Connections)
         table.clear(self.Instances)
     end
