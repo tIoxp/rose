@@ -74,12 +74,15 @@ do
     function Utility:Hook(Function, NewFunction)
         assert(typeof(Function) == 'function', 'Not a function')
         assert(typeof(NewFunction) == 'function', 'Not a function')
-
+    
         if iscclosure(Function) then
             NewFunction = newcclosure(NewFunction)
         end
-
-        return hookfunction(Function, NewFunction)
+    
+        local Original = hookfunction(Function, NewFunction)
+        self.Hooks[#self.Hooks + 1] = Function
+    
+        return Original
     end
 
     function Utility:FindUpvalue(Function, NameOrIndex)
