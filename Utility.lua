@@ -1,7 +1,7 @@
 Utility = {
+    Hooks = { },
     Instances = { },
     Connections = { },
-    Hooks = { },
 }
 
 do
@@ -24,6 +24,14 @@ do
 
     do
         function Utility:GetService(Name)
+            local Lowered = string.lower(Name)
+
+            for _, Service in next, game:GetChildren() do
+                if string.lower(Service.ClassName) == Lowered then
+                    return cloneref(Service)
+                end
+            end
+
             return cloneref(game:GetService(Name))
         end
 
@@ -72,13 +80,13 @@ do
 
     do
         function Utility:Hook(Name, Function, Callback)
-            assert(typeof(Function) == 'function', 'Not a function')
-            assert(typeof(Callback) == 'function', 'Not a function')
+            assert(typeof(Function) == 'function', '1: Not a function')
+            assert(typeof(Callback) == 'function', '2: Not a function')
             assert(not self.Hooks[Name], `Hook {Name} already exists`)
 
             local Original
 
-            local function Wrapper(...)
+            local Wrapper = function(...)
                 return Callback(Original, ...)
             end
 
