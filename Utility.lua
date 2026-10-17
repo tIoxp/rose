@@ -158,13 +158,13 @@ do
 
     do
         function Utility:DeepCopy(Original, Seen)
-            Seen = Seen or {}
+            Seen = Seen or { }
 
             if Seen[Original] then
                 return Seen[Original]
             end
 
-            local Copy = {}
+            local Copy = { }
             Seen[Original] = Copy
 
             for Key, Value in Original do
