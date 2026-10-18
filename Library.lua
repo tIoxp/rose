@@ -948,17 +948,30 @@ do
             end
             local filePath = resolveExistingFile(ConfigName)
             if isfile(filePath) then
-                pcall(delfile or deletefile, filePath)
+                local Success = pcall(delfile or deletefile, filePath)
+                if Success then
+                    library:Notification({Title = "Config", Text = "Deleted " .. ConfigName})
+                else
+                    library:Notification({Title = "Config", Text = "Failed to delete " .. ConfigName})
+                end
+            else
+                library:Notification({Title = "Config", Text = "Config " .. ConfigName .. " not found"})
             end
         elseif Action == "Save" then
             local configData = library:GetConfig()
             if configData then
-                if not Find(library.configs, ConfigName) then
+                local Existed = Find(library.configs, ConfigName) ~= nil
+                if not Existed then
                     library.configs[#library.configs + 1] = ConfigName
                     library:RefreshConfigList()
                 end
                 local filePath = getFilePath(ConfigName)
-                pcall(writefile, filePath, configData)
+                local Success = pcall(writefile, filePath, configData)
+                if Success then
+                    library:Notification({Title = "Config", Text = (Existed and "Saved " or "Created ") .. ConfigName})
+                else
+                    library:Notification({Title = "Config", Text = "Failed to save " .. ConfigName})
+                end
             end
         elseif Action == "Load" then
             local filePath = resolveExistingFile(ConfigName)
@@ -967,7 +980,12 @@ do
                 if success and data then
                     local parsed = library:ParseConfig(data)
                     library:LoadConfig(parsed)
+                    library:Notification({Title = "Config", Text = "Loaded " .. ConfigName})
+                else
+                    library:Notification({Title = "Config", Text = "Failed to load " .. ConfigName})
                 end
+            else
+                library:Notification({Title = "Config", Text = "Config " .. ConfigName .. " not found"})
             end
         end
     end
@@ -1061,6 +1079,22 @@ do
     --
     function library:GetThemes()
         return utility:GetTableIndexes(library.themes, true)
+    end
+    --
+    function library:GetStatus(Player)
+        if typeof(Player) == "string" then
+            Player = plrs:FindFirstChild(Player)
+        end
+        --
+        if typeof(Player) ~= "Instance" then
+            return "None"
+        end
+        --
+        if Player == localplayer then
+            return "Local Player"
+        end
+        --
+        return library.Relations[Player.UserId] or "None"
     end
     --
     function library:CreateTooltip(window)
@@ -3905,6 +3939,10 @@ do
             end
         end
         --
+        function playerList:GetStatus(Player)
+            return library:GetStatus(Player)
+        end
+        --
         function playerList:UpdateScroll()
             if (#playerList.players - 10) > 0 then
                 playerList.scrollingindex = math.clamp(playerList.scrollingindex, 0, (#playerList.players - 10))
@@ -4089,9 +4127,8 @@ do
         local Config_Configuration = page:Section({Name = info.ConfigurationName or "Configuration", Side = "Right"})
         local Config_Theme = page:Section({Name = info.ThemeName or "Theme"})
 
-        -- Menu Section
         Config_Menu:Keybind({
-            Name = "Toggle",
+            Name = "Menu Key",
             Flag = "ConfigMenu_MenuToggle",
             Default = Enum.KeyCode.End,
             KeybindName = "Menu Key",
@@ -4101,7 +4138,6 @@ do
             end
         })
 
-
         Config_Menu:Toggle({
             Name = "Show Watermark",
             Flag = "ConfigExtra_Watermark",
@@ -4110,6 +4146,13 @@ do
                     window.watermark:Update("Visible", State)
                 end
             end
+        })
+
+        Config_Menu:Multibox({
+            Name = "Options",
+            Flag = "ConfigExtra_WatermarkOptions",
+            Options = {"FPS", "Ping", "MemoryUsage", "LuaMemory", "Instances", "SendKbps", "ReceiveKbps"},
+            Default = {"FPS", "Ping"}
         })
 
         Config_Menu:Slider({
@@ -4141,7 +4184,6 @@ do
             })
         end
 
-        -- Configuration Section
         library:ScanConfigs()
         Config_Configuration:List({
             Flag = "ConfigConfiguration_Box",
@@ -4190,8 +4232,6 @@ do
             }
         })
 
-
-        -- Theme Section
         local themeNames = utility:GetTableIndexes(library.themes, true)
         Config_Theme:Dropdown({
             Name = "Theme",
@@ -4205,7 +4245,6 @@ do
                 end
             end
         })
-
 
         Config_Theme:Colorpicker({Name = "Accent", Flag = "ConfigTheme_Accent", Default = theme.accent, Callback = function(Color) library:UpdateColor("Accent", Color) end})
         Config_Theme:Colorpicker({Name = "Light Contrast", Flag = "ConfigTheme_LightContrast", Default = theme.lightcontrast, Callback = function(Color) library:UpdateColor("LightContrast", Color) end})
