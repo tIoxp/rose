@@ -1,10 +1,5 @@
-Utility = {
-    Hooks = { },
-    Instances = { },
-    Connections = { },
-}
 
-do
+local Utility = { Hooks = { }, Instances = { }, Connections = { }, }; do
     do -- math
         Utility.Math = { }
 
@@ -195,15 +190,18 @@ do
 
     do
         local Stats = Utility:GetService('Stats')
-
+ 
         function Utility:GetPerformanceStats()
-            local StatsTable = {
-                FPS = self.Math:Round(1 / Stats.FrameTime),
+            return {
+                FPS = math.round(1000 / Stats.FrameRateManager.RenderAverage:GetValue()),
+                FrameTime = Stats.FrameRateManager.RenderAverage:GetValue(),
+                Ping = math.round(Stats.Network.ServerStatsItem['Data Ping']:GetValue()),
                 MemoryUsage = Stats:GetTotalMemoryUsageMb(),
-                Ping = string.format('%.2f', Stats.Network.ServerStatsItem['Data Ping']:GetValue())
+                LuaMemory = gcinfo() / 1024,
+                Instances = Stats.InstanceCount,
+                SendKbps = Stats.DataSendKbps,
+                ReceiveKbps = Stats.DataReceiveKbps
             }
-
-            return StatsTable
         end
     end
 
